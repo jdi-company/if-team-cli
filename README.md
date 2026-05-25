@@ -92,6 +92,13 @@ if-team task statuses                               # status IDs (for --status)
 if-team task priorities                             # priority IDs
 if-team task show 4567                              # full details
 if-team task 4567 --ndjson                          # compact JSON for piping
+
+# Iterations
+if-team iteration list 12                           # iterations for project 12 (required)
+if-team iteration list 12 --status 1 --limit 50
+if-team iteration statuses                          # available iteration status IDs
+if-team iteration show 345                          # full details for one iteration
+if-team iteration 345                               # same as `show` (implicit view)
 ```
 
 Use `--ndjson` on `show` to get one compact JSON line — handy when streaming

@@ -49,14 +49,20 @@ src/
 │  │  ├─ list.ts          # buildQuery() + listCommand() — --status, --page, --limit
 │  │  ├─ show.ts          # parseId() + showCommand() — GET /projects/{id}
 │  │  └─ statuses.ts      # GET /project_statuses
-│  └─ task/               # Read-only task browsing
-│     ├─ index.ts         # list / statuses / priorities / show (+ implicit `view`)
-│     ├─ list.ts          # buildQuery() + listCommand() — --status, --project,
-│     │                   # --start-at, --finish-at, --page, --limit
-│     ├─ show.ts          # parseId() + showCommand() — GET /tasks/{id}
-│     │                   # (unwraps TaskPageDocs envelope: response.task)
-│     ├─ statuses.ts      # GET /task_statuses
-│     └─ priorities.ts    # GET /task_priorities
+│  ├─ task/               # Read-only task browsing
+│  │  ├─ index.ts         # list / statuses / priorities / show (+ implicit `view`)
+│  │  ├─ list.ts          # buildQuery() + listCommand() — --status, --project,
+│  │  │                   # --start-at, --finish-at, --page, --limit
+│  │  ├─ show.ts          # parseId() + showCommand() — GET /tasks/{id}
+│  │  │                   # (unwraps TaskPageDocs envelope: response.task)
+│  │  ├─ statuses.ts      # GET /task_statuses
+│  │  └─ priorities.ts    # GET /task_priorities
+│  └─ iteration/          # Read-only iteration browsing (per-project)
+│     ├─ index.ts         # list <project_id> / statuses / show (+ implicit `view`)
+│     ├─ list.ts          # parseProjectId() + buildQuery() — required <project_id>
+│     │                   # positional, --status, --page, --limit
+│     ├─ show.ts          # parseId() + showCommand() — GET /iterations/{id}
+│     └─ statuses.ts      # GET /iteration_statuses
 └─ lib/                   # Shared utilities — don't reimplement
    ├─ api/
    │  └─ client.ts        # apiRequest(), loginRequest(), getCompanies(),

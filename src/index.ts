@@ -42,6 +42,10 @@ const commands: Record<string, [string, () => Promise<(p: Command) => void>]> = 
         'Browse tasks',
         async () => (await import('./commands/task/index.js')).registerTaskCommand,
     ],
+    iteration: [
+        'Browse project iterations',
+        async () => (await import('./commands/iteration/index.js')).registerIterationCommand,
+    ],
 }
 
 // Register placeholders so --help lists all commands
