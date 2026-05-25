@@ -41,15 +41,24 @@ src/
 ├─ commands/              # One folder per command group
 │  └─ auth/
 │     ├─ index.ts         # Registers login / logout / status subcommands
-│     ├─ login.ts
-│     ├─ logout.ts
-│     └─ status.ts
+│     ├─ login.ts         # Dual-mode: API key (Option A) + email/password
+│     ├─ logout.ts        # Server-side logout + keychain clear
+│     └─ status.ts        # Shows mode, company, JWT expiry
 └─ lib/                   # Shared utilities — don't reimplement
+   ├─ api/
+   │  └─ client.ts        # apiRequest(), loginRequest(), getCompanies(),
+   │                      # validateApiKey(), logoutRequest()
+   ├─ auth-store.ts       # Keychain read/write via @napi-rs/keyring,
+   │                      # chmod-600 file fallback, StoredCredentials type
+   ├─ config.ts           # Non-sensitive config (~/.config/if-team-cli/config.json)
+   │                      # baseUrl only — never stores secrets
    ├─ errors.ts           # CliError(code, message, hints?) + ErrorCode union
    ├─ global-args.ts      # isJsonMode(), isNdjsonMode()
    ├─ logger.ts           # initializeLogger(), log(level, …) — -v verbosity
    ├─ output.ts           # formatError, formatErrorJson, printJson, printNdjson,
    │                      # printSuccess
+   ├─ prompt.ts           # promptText(), promptPassword() (silent — no echo),
+   │                      # promptCompany()
    └─ spinner.ts          # ora wrapper — startSpinner, stopSpinner,
                           # succeedSpinner, failSpinner
 ```
@@ -81,25 +90,41 @@ src/
 
 ## `src/lib/` catalog — don't reimplement
 
+- **`api/client.ts`** — `apiRequest<T>(path, options?)`: authenticated fetch
+  wrapper. Injects auth header (Bearer or `apikey:`), auto-injects `company_id`
+  from stored credentials, auto-refreshes expired JWTs. Also exports
+  `loginRequest()`, `getCompanies(accessToken)`, `validateApiKey(key, companyId)`,
+  `logoutRequest()`.
+- **`auth-store.ts`** — `storeCredentials()`, `loadCredentials()`,
+  `clearCredentials()`. Uses `@napi-rs/keyring` (macOS Keychain / Windows
+  Credential Manager / Linux libsecret). Falls back to a `chmod 600` file at
+  `~/.config/if-team-cli/credentials.json` with a warning when keychain is
+  unavailable. `StoredCredentials` is a discriminated union on `mode`:
+  `'api-key'` (key + companyId + companyName) or `'jwt'` (tokens + email +
+  name + companyId + companyName).
+- **`config.ts`** — `loadConfig()`, `saveConfig()`. Reads/writes
+  `~/.config/if-team-cli/config.json`. Contains only `baseUrl` — never a
+  secret.
+- **`prompt.ts`** — `promptText(query)`: standard readline prompt.
+  `promptPassword(query)`: silent input (no echo) — enterprise standard,
+  same as `sudo`/`ssh`/`gh`. Handles paste events correctly (multi-char data
+  events). `promptCompany(companies)`: numbered company picker, auto-selects
+  if only one.
 - **`errors.ts`** — `CliError(code, message, hints?, type?)`. Throw for
-  anything user-facing. The global `parseAsync().catch` in `src/index.ts`
-  routes it to the correct formatter. `ErrorCode` union covers common codes;
-  extend it when adding new error states.
+  anything user-facing. `ErrorCode` union covers common codes; extend when
+  adding new error states.
 - **`output.ts`** — `formatError(err)`, `formatErrorJson(err)`,
   `printJson(data)`, `printNdjson(data)`, `printSuccess(msg)`.
-  Use `printJson` for `--json` output, `printSuccess` for human confirmation.
 - **`spinner.ts`** — `startSpinner(text)`, `stopSpinner()`,
-  `succeedSpinner(text?)`, `failSpinner(text?)`. Spinner is auto-disabled in
+  `succeedSpinner(text?)`, `failSpinner(text?)`. Auto-disabled in
   `--json` / `--ndjson` / `--no-spinner` modes.
-- **`global-args.ts`** — `isJsonMode()`, `isNdjsonMode()`. Check these before
-  printing human-readable output.
-- **`logger.ts`** — `initializeLogger()` (called once in `src/index.ts`),
-  `log(level, …)` for verbose output (level 1–4 maps to `-v` … `-vvvv`).
+- **`global-args.ts`** — `isJsonMode()`, `isNdjsonMode()`.
+- **`logger.ts`** — `initializeLogger()`, `log(level, …)` (levels 1–4).
 
 ## if.team API
 
-- **Base URL:** `https://api.if.team` (override with `IF_TEAM_API_URL` env var)
-- **Auth:** Bearer token from `IF_TEAM_TOKEN` env var or stored credentials
+- **Base URL:** `https://api.demo.if.team` (override with `IF_TEAM_API_URL` env var)
+- **Auth:** see AGENTS.md — two-tier system (API key vs Bearer JWT)
 - **Spec:** `docs/api-spec.json` — OpenAPI 3.0, 445 endpoints
 
 ### Key API domains
@@ -107,6 +132,7 @@ src/
 | Domain | Base path | Notes |
 |---|---|---|
 | Auth | `/auth/*` | Login, register, OAuth (Google/Apple), refresh |
+| Companies | `/companies` | Bearer only — returns user's company list |
 | Projects | `/projects/*` | CRUD, Gantt, Kanban, templates, reports |
 | Tasks | `/tasks/*` | CRUD, bulk, calendar, workload, Gantt, Kanban |
 | Clients | `/clients/*` | CRM clients, custom fields |
@@ -152,16 +178,14 @@ curl -s https://api.demo.if.team/api-json -o docs/api-spec.json
 - No barrel files except per-group `index.ts` wiring Commander
 - Mutating commands (`add`/`create`/`update`): always support `--json`
   outputting the resulting entity via `printJson()` — see AGENTS.md
-- User-facing errors: throw `CliError(code, message, hints?)` from
-  `src/lib/errors.ts`; never call `process.exit()` directly in command handlers
-- Global flags checked via `src/lib/global-args.ts` — always call `isJsonMode()`
-  before printing human-readable output
+- User-facing errors: throw `CliError(code, message, hints?)` — never `process.exit()` in handlers
+- Global flags: always call `isJsonMode()` before printing human-readable output
 
 ## Start here if new
 
 1. `src/index.ts` — entry + command registry
-2. `src/commands/auth/index.ts` — canonical group command
-3. `src/commands/auth/login.ts` — canonical write command
-4. `src/lib/errors.ts` + `src/lib/output.ts` — what's already built
-5. `AGENTS.md` — rules you must follow
+2. `src/commands/auth/login.ts` — canonical dual-mode command with keychain storage
+3. `src/lib/api/client.ts` — how to call the API (auth, company_id injection, refresh)
+4. `src/lib/auth-store.ts` — credential storage model
+5. `AGENTS.md` — rules you must follow (especially the auth model section)
 6. `docs/api-spec.json` — API reference (OpenAPI 3.0)

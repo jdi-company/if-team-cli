@@ -8,25 +8,39 @@ A command-line interface for [if.team](https://if.team) — an all-in-one ERP fo
 npm install -g @jdi/if-team-cli
 ```
 
-## Setup
+## Authentication
 
-Authenticate with your if.team API token:
+### API key (recommended)
+
+Get your API key from the if.team admin dashboard, then run:
 
 ```bash
-if-team auth login --token <your-token>
+if-team auth login --key <your-api-key>
 ```
 
-Or set the environment variable:
+You will be prompted for your email and password **once** to discover your companies — they are not stored. Only the API key is saved to the OS keychain (macOS Keychain, Windows Credential Manager, Linux libsecret).
+
+### Email / password
 
 ```bash
-export IF_TEAM_TOKEN="your-token"
+if-team auth login
 ```
 
-`IF_TEAM_TOKEN` takes priority over the stored token.
+Prompts for email and password interactively. The password prompt is silent (no echo) — enterprise standard, same as `sudo`. Tokens are stored securely in the OS keychain.
+
+### Environment variable (CI / scripts)
 
 ```bash
-if-team auth status   # check authentication status
-if-team auth logout   # remove stored credentials
+export IF_TEAM_TOKEN="your-api-key"
+```
+
+`IF_TEAM_TOKEN` takes priority over stored credentials and is never written to disk — ideal for automation.
+
+### Auth commands
+
+```bash
+if-team auth status   # show authentication status, mode, and company
+if-team auth logout   # invalidate session and remove stored credentials
 ```
 
 ## Usage

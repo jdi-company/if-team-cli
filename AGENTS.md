@@ -52,40 +52,6 @@ node dist/index.js --help
 node dist/index.js auth status
 ```
 
-## Repository Layout
-
-```
-/
-├─ src/                   # All source
-│  ├─ index.ts            # Entry: Commander setup, lazy command registry
-│  ├─ commands/           # One folder per command group
-│  │  └─ auth/            # login, logout, status
-│  └─ lib/                # Shared utilities
-│     ├─ errors.ts        # CliError class + error codes
-│     ├─ global-args.ts   # isJsonMode(), isNdjsonMode()
-│     ├─ logger.ts        # -v verbosity helper
-│     ├─ output.ts        # formatError, formatErrorJson, printJson, printSuccess
-│     └─ spinner.ts       # ora wrapper (startSpinner, stopSpinner, etc.)
-├─ docs/
-│  └─ api-spec.json       # OpenAPI 3.0 spec (auto-updated by GitHub Action)
-├─ .github/
-│  └─ workflows/
-│     └─ check-api-spec.yml   # Daily spec drift check → auto PR
-├─ AGENTS.md              # This file
-├─ CLAUDE.md              # One-liner forward to AGENTS.md
-├─ tsconfig.json
-├─ tsconfig.build.json
-├─ vitest.config.ts
-└─ package.json
-```
-
-## Architecture Flow
-
-1. `src/index.ts` sets `program.name('if-team')`, registers global flags (`--quiet`, `-v`, `--no-spinner`), and builds a **lazy command registry** — `Record<name, [description, loader]>`.
-2. Placeholder subcommands are registered so `--help` lists everything without importing any module.
-3. The invoked command name is extracted from `process.argv`; only that command's loader runs. The real `registerXxxCommand(program)` replaces the placeholder.
-4. `program.parseAsync()` runs the action handler. Uncaught `CliError` is rendered via `formatError()` (pretty) or `formatErrorJson()` (JSON mode) and exits with code 1.
-
 ## Adding a New Command Group
 
 1. Create `src/commands/{name}/index.ts` exporting `registerXxxCommand(program: Command): void`.
@@ -122,12 +88,6 @@ throw new CliError('NOT_FOUND', `Task "${ref}" not found.`, [
 
 The global `parseAsync().catch` in `src/index.ts` routes `CliError` to the correct formatter (pretty or JSON). Never call `process.exit()` directly in command handlers.
 
-## API Client
-
-- **Base URL:** `https://api.demo.if.team` (default). Override with `IF_TEAM_API_URL` env var.
-- The API spec (`docs/api-spec.json`) is the authoritative reference for request/response shapes.
-- `apiRequest()` in `src/lib/api/client.ts` handles auth headers and auto-injects `company_id`.
-
 ## if.team Auth Model
 
 if.team has a **two-tier auth system**. Understanding this is critical when adding new commands.
@@ -137,33 +97,64 @@ if.team has a **two-tier auth system**. Understanding this is critical when addi
 Created in the if.team admin dashboard per company. Sent as `apikey: <token>` header.
 
 **Works on:** all business/resource endpoints (projects, tasks, finance, CRM, etc.)  
-**Does NOT work on:** `/auth/*` endpoints (profile, companies, logout, refresh)  
+**Does NOT work on:** `/auth/*` endpoints, `/companies` — these require Bearer JWT  
 **Requires:** `company_id` query parameter on virtually every request  
-**Validation probe:** `GET /subscriptions/current?company_id=<id>` — this is the only safe way to verify a key without Bearer auth
+**Validation probe:** `GET /subscriptions/current?company_id=<id>` — safe verification without Bearer auth
 
 ### Tier 2 — Bearer JWT (`Authorization: Bearer` header)
 
-Obtained via `POST /auth/login` with email + password. Short-lived; auto-refreshed using the refresh token via `POST /auth/refresh` (sends refresh token as Bearer, no request body).
+Obtained via `POST /auth/login` with email + password. Short-lived; auto-refreshed using the refresh token via `POST /auth/refresh` (sends refresh token as Bearer header, no request body).
 
-**Works on:** all endpoints including `/auth/*`  
+**Works on:** all endpoints including `/auth/*` and `/companies`  
 **Requires:** `company_id` query parameter on business endpoints  
 **Auto-refresh:** `apiRequest()` checks expiry 30 s early and refreshes silently
 
+### `auth login` flow
+
+**Email/password mode** (`if-team auth login`):
+1. Prompt email (visible) and password (silent — no echo, enterprise standard)
+2. `POST /auth/login` → access token + refresh token
+3. If `companies` absent from response, call `GET /companies` with the JWT
+4. User selects company from numbered list (auto-selects if only one)
+5. Store JWT + company metadata in OS keychain
+
+**API key mode** (`if-team auth login --key <key>`):
+1. Note displayed: email/password needed once to discover companies, will not be stored
+2. Prompt email and password (same silent prompt)
+3. `POST /auth/login` → temporary JWT (used only for company discovery)
+4. `GET /companies` with temporary JWT → company list
+5. User selects company
+6. Validate API key: `GET /subscriptions/current?company_id=<id>` with `apikey` header
+7. **Discard JWT** — store only API key + company metadata in OS keychain
+
 ### Auth precedence in `apiRequest()`
 
-1. `IF_TEAM_TOKEN` env var → API key mode, session-only, never stored
-2. Stored credentials from keyring → API key or JWT (whichever was used at login)
+1. `IF_TEAM_TOKEN` env var → API key mode, session-only, never stored to disk
+2. Stored credentials from keychain → API key or JWT (whichever was used at login)
 3. No credentials → throws `CliError('NO_TOKEN', …)`
 
 ### `company_id` injection
 
 `apiRequest()` automatically appends `?company_id=<stored>` to every request unless the caller already provides it in the `query` option. Never omit `company_id` in manual `fetch()` calls outside `apiRequest()`.
 
-### What API key login does NOT give you
+### Credential storage
 
-- No `email` or `name` — `/auth/profile` rejects API keys with 401
-- No company list — `/companies` also requires Bearer auth
-- The user must provide `company_id` manually during `auth login --key`
+Credentials are stored as a JSON blob in the **OS keychain** via `@napi-rs/keyring`:
+- macOS: Keychain Access (service: `if-team-cli`, account: `credentials`)
+- Windows: Credential Manager
+- Linux: libsecret / Secret Service
+
+If the keychain is unavailable, falls back to `~/.config/if-team-cli/credentials.json` with `chmod 600` and a warning. The config file (`config.json` in the same dir) holds only `baseUrl` — never a secret.
+
+**API key credentials stored:** `{ mode, key, companyId, companyName }`  
+**JWT credentials stored:** `{ mode, accessToken, refreshToken, email, name, companyId, companyName }`  
+**Never stored:** email, password (discarded after login), temporary JWT in API key flow
+
+## API Client
+
+- **Base URL:** `https://api.demo.if.team` (default). Override with `IF_TEAM_API_URL` env var.
+- The API spec (`docs/api-spec.json`) is the authoritative reference for request/response shapes.
+- Use `apiRequest()` from `src/lib/api/client.ts` for all authenticated calls — it handles headers, `company_id`, and JWT refresh automatically.
 
 ## Testing
 
