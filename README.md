@@ -63,11 +63,39 @@ if-team <command> --help    # help for a specific command
 
 | Flag | Description |
 |---|---|
-| `--json` | Output as JSON (machine-readable) |
-| `--ndjson` | Output as newline-delimited JSON |
+| `--json` | Output as pretty JSON (machine-readable) |
+| `--ndjson` | Output as a single line of JSON (or one line per item for lists) |
 | `-q, --quiet` | Suppress success messages |
 | `-v` | Verbose output (repeat up to `-vvvv`) |
 | `--no-spinner` | Disable loading animations |
+
+### Browsing projects and tasks
+
+Read-only commands for everyday workflows. All accept `--json` (pretty) and
+`--ndjson` (compact / one line per item).
+
+```bash
+# Projects
+if-team project list                                # first page (default 20 items)
+if-team project list --status 3 --limit 50          # filter + page size
+if-team project list --page 2
+if-team project statuses                            # available status IDs
+if-team project show 1234                           # full details
+if-team project 1234                                # same as `show` (implicit view)
+
+# Tasks
+if-team task list                                   # first page
+if-team task list --project 12 --status 3
+if-team task list --finish-at 2026-05-26            # tasks due on a date (YYYY-MM-DD)
+if-team task list --start-at 2026-05-26 --finish-at 2026-05-31
+if-team task statuses                               # status IDs (for --status)
+if-team task priorities                             # priority IDs
+if-team task show 4567                              # full details
+if-team task 4567 --ndjson                          # compact JSON for piping
+```
+
+Use `--ndjson` on `show` to get one compact JSON line — handy when streaming
+context to an LLM or piping through `jq`.
 
 ## Local Development
 

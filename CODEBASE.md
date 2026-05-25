@@ -39,11 +39,24 @@ When a pattern is not yet documented here, check that repo.
 src/
 ├─ index.ts               # Entry: Commander setup, lazy command registry
 ├─ commands/              # One folder per command group
-│  └─ auth/
-│     ├─ index.ts         # Registers login / logout / status subcommands
-│     ├─ login.ts         # Dual-mode: API key (Option A) + email/password
-│     ├─ logout.ts        # Server-side logout + keychain clear
-│     └─ status.ts        # Shows mode, company, JWT expiry
+│  ├─ auth/
+│  │  ├─ index.ts         # Registers login / logout / status subcommands
+│  │  ├─ login.ts         # Dual-mode: API key (Option A) + email/password
+│  │  ├─ logout.ts        # Server-side logout + keychain clear
+│  │  └─ status.ts        # Shows mode, company, JWT expiry
+│  ├─ project/            # Read-only project browsing
+│  │  ├─ index.ts         # list / statuses / show (+ implicit `view`)
+│  │  ├─ list.ts          # buildQuery() + listCommand() — --status, --page, --limit
+│  │  ├─ show.ts          # parseId() + showCommand() — GET /projects/{id}
+│  │  └─ statuses.ts      # GET /project_statuses
+│  └─ task/               # Read-only task browsing
+│     ├─ index.ts         # list / statuses / priorities / show (+ implicit `view`)
+│     ├─ list.ts          # buildQuery() + listCommand() — --status, --project,
+│     │                   # --start-at, --finish-at, --page, --limit
+│     ├─ show.ts          # parseId() + showCommand() — GET /tasks/{id}
+│     │                   # (unwraps TaskPageDocs envelope: response.task)
+│     ├─ statuses.ts      # GET /task_statuses
+│     └─ priorities.ts    # GET /task_priorities
 └─ lib/                   # Shared utilities — don't reimplement
    ├─ api/
    │  └─ client.ts        # apiRequest(), loginRequest(), getCompanies(),
@@ -56,7 +69,7 @@ src/
    ├─ global-args.ts      # isJsonMode(), isNdjsonMode()
    ├─ logger.ts           # initializeLogger(), log(level, …) — -v verbosity
    ├─ output.ts           # formatError, formatErrorJson, printJson, printNdjson,
-   │                      # printSuccess
+   │                      # printSuccess, printTable, printKeyValue
    ├─ prompt.ts           # promptText(), promptPassword() (silent — no echo),
    │                      # promptCompany()
    └─ spinner.ts          # ora wrapper — startSpinner, stopSpinner,
@@ -114,7 +127,10 @@ src/
   anything user-facing. `ErrorCode` union covers common codes; extend when
   adding new error states.
 - **`output.ts`** — `formatError(err)`, `formatErrorJson(err)`,
-  `printJson(data)`, `printNdjson(data)`, `printSuccess(msg)`.
+  `printJson(data)`, `printNdjson(data)`, `printSuccess(msg)`,
+  `printTable(rows, columns)` (aligned table; renders "(no results)" when
+  empty), `printKeyValue(entries)` (aligned `key: value` block; renders
+  `null`/`undefined` as em-dash).
 - **`spinner.ts`** — `startSpinner(text)`, `stopSpinner()`,
   `succeedSpinner(text?)`, `failSpinner(text?)`. Auto-disabled in
   `--json` / `--ndjson` / `--no-spinner` modes.
@@ -185,7 +201,12 @@ curl -s https://api.demo.if.team/api-json -o docs/api-spec.json
 
 1. `src/index.ts` — entry + command registry
 2. `src/commands/auth/login.ts` — canonical dual-mode command with keychain storage
-3. `src/lib/api/client.ts` — how to call the API (auth, company_id injection, refresh)
-4. `src/lib/auth-store.ts` — credential storage model
-5. `AGENTS.md` — rules you must follow (especially the auth model section)
-6. `docs/api-spec.json` — API reference (OpenAPI 3.0)
+3. `src/commands/task/list.ts` — canonical list command (bracket-notation filters,
+   `buildQuery` export for tests, `--json` / `--ndjson` / table output)
+4. `src/commands/task/show.ts` — canonical show command (`parseId` export,
+   `--json` / `--ndjson` / key-value output, 404 → `NOT_FOUND` mapping,
+   envelope unwrapping when the API wraps the entity)
+5. `src/lib/api/client.ts` — how to call the API (auth, company_id injection, refresh)
+6. `src/lib/auth-store.ts` — credential storage model
+7. `AGENTS.md` — rules you must follow (especially the auth model section)
+8. `docs/api-spec.json` — API reference (OpenAPI 3.0)

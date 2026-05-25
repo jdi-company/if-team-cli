@@ -68,13 +68,26 @@ node dist/index.js auth status
 ## Command Conventions (follow todoist-cli exactly)
 
 - **Group commands** (`task/`, `project/`, etc.): `index.ts` creates a parent command, each subcommand's logic in a sibling file.
-- **Implicit `view` subcommand**: register `.command('view [ref]', { isDefault: true })` so `if-team project <ref>` dispatches to `if-team project view <ref>`.
+- **Implicit `view` subcommand**: register `.command('view [id]', { isDefault: true })` so `if-team project <id>` dispatches to `if-team project view <id>`. Use `<id>` (not `<ref>`) as the positional placeholder — it reads as "an integer ID" to users.
 - **Named flag aliases**: where commands accept positional args (project, task), also accept `--project`, `--task` flags. Error if both positional and flag are provided.
 - **`--json` on all mutating commands**: output the resulting entity as JSON when `--json` is passed. Use `printJson()` from `src/lib/output.ts`.
-- **`--ndjson`**: output one JSON object per line (for piping / streaming).
+- **`--ndjson`**: output one JSON object per line (for piping / streaming). On `show`/`view` commands, `--ndjson` collapses the entity into one compact line — useful for piping a single record to `jq` or feeding context to an LLM.
 - **`--dry-run`**: preview what would happen without executing.
 - **`--yes`**: skip confirmation prompts on destructive operations.
 - **`--quiet` / `-q`**: suppress success messages; create commands still print the created entity's ID.
+
+## List & show commands (read-only pattern)
+
+Canonical examples: `src/commands/task/list.ts`, `src/commands/task/show.ts`. Follow these rules for any new read-only command.
+
+- **Extract `buildQuery(options)`** from `listCommand` and export it, so query construction is unit-testable without mocking `apiRequest`.
+- **Extract `parseId(input)`** from `showCommand` and export it; throw `CliError('MISSING_ID', …)` or `CliError('INVALID_REF', …)` for bad input.
+- **Bracket-notation filters**: NestJS DTOs use form-array notation. Pass keys like `'filter[status_id][]': '5'` directly to `apiRequest`'s `query` option — `URLSearchParams.set()` URL-encodes them correctly. **Direct query params** (e.g. `project_id`) take precedence over `filter[project_id][]` when both exist; prefer the direct one.
+- **Dates**: validate `YYYY-MM-DD` with `/^\d{4}-\d{2}-\d{2}$/` and throw `CliError('INVALID_OPTIONS', …)`. Don't accept other formats — the API wants ISO dates only.
+- **Envelope unwrapping**: some `GET /{resource}/{id}` endpoints return wrapped envelopes (e.g. `GET /tasks/{id}` returns `{ task, dependencyTasks, checklists, … }`). Unwrap before formatting key-value output, but for `--json`/`--ndjson` pass the **raw envelope** through — callers may need the extras.
+- **404 mapping**: wrap `apiRequest` in try/catch and re-throw `CliError('NOT_FOUND', …)` when the message matches `/not\s*found|404/i`.
+- **Human output**: list → `printTable(rows, columns)` then a footer `Showing X of Y (page N, limit L)`; show → `printKeyValue([['Key', value], …])`. Both helpers live in `src/lib/output.ts`.
+- **i18n-shaped fields**: some list-item fields wrap their value in an object (e.g. `name: { name: "..." }`, `finish_at: { date, show_time, color }`). Check `docs/api-spec.json` for the actual schema before assuming a field is a primitive — the spec is authoritative.
 
 ## Errors
 

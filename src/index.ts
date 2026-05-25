@@ -34,6 +34,14 @@ const commands: Record<string, [string, () => Promise<(p: Command) => void>]> = 
         'Manage authentication',
         async () => (await import('./commands/auth/index.js')).registerAuthCommand,
     ],
+    project: [
+        'Browse projects',
+        async () => (await import('./commands/project/index.js')).registerProjectCommand,
+    ],
+    task: [
+        'Browse tasks',
+        async () => (await import('./commands/task/index.js')).registerTaskCommand,
+    ],
 }
 
 // Register placeholders so --help lists all commands

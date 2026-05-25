@@ -29,3 +29,45 @@ export function printNdjson(data: unknown): void {
 export function printSuccess(message: string): void {
     console.log(chalk.green(`✔ ${message}`))
 }
+
+export interface TableColumn<Row> {
+    header: string
+    get: (row: Row) => string | number | null | undefined
+}
+
+export function printTable<Row>(rows: Row[], columns: TableColumn<Row>[]): void {
+    if (rows.length === 0) {
+        console.log(chalk.dim('(no results)'))
+        return
+    }
+
+    const cells = rows.map((row) =>
+        columns.map((col) => {
+            const v = col.get(row)
+            return v === null || v === undefined ? '' : String(v)
+        }),
+    )
+
+    const widths = columns.map((col, i) =>
+        Math.max(col.header.length, ...cells.map((row) => row[i].length)),
+    )
+
+    const pad = (s: string, w: number, isLast: boolean) => (isLast ? s : s.padEnd(w))
+    const lastIdx = columns.length - 1
+
+    console.log(
+        chalk.bold(columns.map((col, i) => pad(col.header, widths[i], i === lastIdx)).join('  ')),
+    )
+
+    for (const row of cells) {
+        console.log(row.map((cell, i) => pad(cell, widths[i], i === lastIdx)).join('  '))
+    }
+}
+
+export function printKeyValue(entries: Array<[string, string | number | null | undefined]>): void {
+    const width = Math.max(...entries.map(([k]) => k.length))
+    for (const [k, v] of entries) {
+        const value = v === null || v === undefined ? chalk.dim('—') : String(v)
+        console.log(`${chalk.bold(k.padEnd(width))}  ${value}`)
+    }
+}
