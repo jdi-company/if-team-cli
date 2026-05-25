@@ -1,0 +1,59 @@
+name: Check API spec
+
+on:
+  schedule:
+    # Run daily at 08:00 UTC
+    - cron: '0 8 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download latest API spec
+        run: curl -sf https://api.demo.if.team/api-json -o docs/api-spec.new.json
+
+      - name: Compare specs
+        id: diff
+        run: |
+          if diff -q docs/api-spec.json docs/api-spec.new.json > /dev/null 2>&1; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            # Extract new API version for the PR title
+            VERSION=$(jq -r '.info.version // "unknown"' docs/api-spec.new.json)
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Replace stored spec
+        if: steps.diff.outputs.changed == 'true'
+        run: mv docs/api-spec.new.json docs/api-spec.json
+
+      - name: Create pull request
+        if: steps.diff.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: chore/update-api-spec
+          commit-message: "chore: update API spec to v${{ steps.diff.outputs.version }}"
+          title: "chore: update API spec (v${{ steps.diff.outputs.version }})"
+          body: |
+            The if.team API spec has changed.
+
+            **Source:** `https://api.demo.if.team/api-json`
+            **New version:** `${{ steps.diff.outputs.version }}`
+
+            Review the diff in `docs/api-spec.json` to see what endpoints or
+            schemas were added, changed, or removed, and update the CLI accordingly.
+          labels: api-spec,automated
+          delete-branch: true
+
+      - name: Cleanup temp file
+        if: steps.diff.outputs.changed == 'false'
+        run: rm -f docs/api-spec.new.json
