@@ -144,6 +144,19 @@ Steps (all three paths share the same flow once the key is resolved):
 2. Stored credentials from keychain → API key or JWT (whichever was used at login)
 3. No credentials → throws `CliError('NO_TOKEN', …)`
 
+### `company_id` resolution when `IF_TEAM_TOKEN` is set
+
+`IF_TEAM_TOKEN` alone is not enough — every business endpoint also requires `company_id`. Resolution order:
+
+1. `IF_TEAM_COMPANY_ID` env var — explicit, fully env-based (no keychain needed)
+2. `companyId` from stored keychain credentials — convenient fallback when a prior `auth login` exists
+3. Neither → throws `CliError('NO_COMPANY', …)` with a hint to set `IF_TEAM_COMPANY_ID`
+
+Example (fully env-based, no stored credentials required):
+```bash
+IF_TEAM_TOKEN=<key> IF_TEAM_COMPANY_ID=123 if-team task list
+```
+
 ### `company_id` injection
 
 `apiRequest()` automatically appends `?company_id=<stored>` to every request unless the caller already provides it in the `query` option. Never omit `company_id` in manual `fetch()` calls outside `apiRequest()`.

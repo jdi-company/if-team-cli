@@ -5,6 +5,7 @@ export type ErrorCode =
     | 'AUTH_ERROR'
     | 'AUTH_FAILED'
     | 'INVALID_TOKEN'
+    | 'NO_COMPANY'
     | 'NO_TOKEN'
     // API & network
     | 'API_ERROR'

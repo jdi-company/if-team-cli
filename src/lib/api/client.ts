@@ -98,9 +98,31 @@ export async function apiRequest<T>(
     const envKey = process.env.IF_TEAM_TOKEN
     const { baseUrl } = loadConfig()
 
-    const creds = envKey
-        ? ({ mode: 'api-key', key: envKey } as StoredCredentials)
-        : loadCredentials()
+    let creds: StoredCredentials | null
+    if (envKey) {
+        const storedCreds = loadCredentials()
+        const envCompanyId = process.env.IF_TEAM_COMPANY_ID
+            ? parseInt(process.env.IF_TEAM_COMPANY_ID, 10)
+            : undefined
+        const companyId = envCompanyId ?? storedCreds?.companyId
+
+        if (companyId === undefined) {
+            throw new CliError(
+                'NO_COMPANY',
+                'No company_id available. Set IF_TEAM_COMPANY_ID or run `if-team auth login` first.',
+                ['Example: IF_TEAM_COMPANY_ID=123 IF_TEAM_TOKEN=<key> if-team task list'],
+            )
+        }
+
+        creds = {
+            mode: 'api-key',
+            key: envKey,
+            companyId,
+            companyName: storedCreds?.companyName ?? '',
+        }
+    } else {
+        creds = loadCredentials()
+    }
 
     if (!creds) {
         throw new CliError('NO_TOKEN', 'Not authenticated. Run `if-team auth login`.')
@@ -199,6 +221,14 @@ export async function validateApiKey(key: string, companyId: number): Promise<vo
         }
         throw new CliError('API_ERROR', `Validation failed: ${res.status} ${res.statusText}`)
     }
+}
+
+// ─── Lightweight auth probe ───────────────────────────────────────────────────
+// Validates the current session (env var or stored creds) against the live API.
+// Throws CliError on auth failure or network error.
+
+export async function probeAuth(): Promise<void> {
+    await apiRequest('/subscriptions/current')
 }
 
 // ─── Server-side logout ───────────────────────────────────────────────────────

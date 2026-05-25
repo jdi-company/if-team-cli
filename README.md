@@ -38,9 +38,12 @@ Prompts for email and password interactively. The password prompt is silent (no 
 
 ```bash
 export IF_TEAM_TOKEN="your-api-key"
+export IF_TEAM_COMPANY_ID="123"
 ```
 
 `IF_TEAM_TOKEN` takes priority over stored credentials and is never written to disk — ideal for automation.
+
+`IF_TEAM_COMPANY_ID` sets the target company for the session. If omitted, the company stored by `auth login` is used as a fallback. If neither is available, business endpoints will fail with a `NO_COMPANY` error.
 
 ### Auth commands
 
