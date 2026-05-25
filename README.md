@@ -15,10 +15,16 @@ npm install -g @jdi/if-team-cli
 Get your API key from the if.team admin dashboard, then run:
 
 ```bash
-if-team auth login --key <your-api-key>
+if-team auth login --key
 ```
 
-You will be prompted for your email and password **once** to discover your companies — they are not stored. Only the API key is saved to the OS keychain (macOS Keychain, Windows Credential Manager, Linux libsecret).
+You will be prompted for the API key **silently** (no echo), then once for your email and password to discover your companies — they are not stored. Only the API key is saved to the OS keychain (macOS Keychain, Windows Credential Manager, Linux libsecret).
+
+You can also pass the key inline, but it will appear in your shell history:
+
+```bash
+if-team auth login --key <your-api-key>   # ⚠ stored in ~/.zsh_history
+```
 
 ### Email / password
 

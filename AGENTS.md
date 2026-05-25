@@ -118,14 +118,25 @@ Obtained via `POST /auth/login` with email + password. Short-lived; auto-refresh
 4. User selects company from numbered list (auto-selects if only one)
 5. Store JWT + company metadata in OS keychain
 
-**API key mode** (`if-team auth login --key <key>`):
-1. Note displayed: email/password needed once to discover companies, will not be stored
-2. Prompt email and password (same silent prompt)
-3. `POST /auth/login` → temporary JWT (used only for company discovery)
-4. `GET /companies` with temporary JWT → company list
-5. User selects company
-6. Validate API key: `GET /subscriptions/current?company_id=<id>` with `apikey` header
-7. **Discard JWT** — store only API key + company metadata in OS keychain
+**API key mode** (`if-team auth login --key`):
+
+The `--key` flag accepts an optional value. Three behaviours:
+
+| Invocation | Behaviour |
+|---|---|
+| `--key` (no value) | Prompts silently for the key — **recommended**, nothing in shell history |
+| `--key <value>` | Uses the inline value; prints a history warning |
+| `IF_TEAM_TOKEN` env var set, no `--key` | Uses env var as the API key (session-only, never stored) |
+
+Steps (all three paths share the same flow once the key is resolved):
+1. Resolve API key (silent prompt, inline value, or env var — see table above)
+2. Note displayed: email/password needed once to discover companies, will not be stored
+3. Prompt email and password (same silent prompt)
+4. `POST /auth/login` → temporary JWT (used only for company discovery)
+5. `GET /companies` with temporary JWT → company list
+6. User selects company
+7. Validate API key: `GET /subscriptions/current?company_id=<id>` with `apikey` header
+8. **Discard JWT** — store only API key + company metadata in OS keychain
 
 ### Auth precedence in `apiRequest()`
 

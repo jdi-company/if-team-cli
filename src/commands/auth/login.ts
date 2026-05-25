@@ -8,7 +8,7 @@ import { promptCompany, promptPassword, promptText } from '../../lib/prompt.js'
 import { startSpinner, stopSpinner } from '../../lib/spinner.js'
 
 export interface LoginOptions {
-    key?: string
+    key?: string | true
 }
 
 function printStorageWarning(result: StoreResult): void {
@@ -23,13 +23,32 @@ function printStorageWarning(result: StoreResult): void {
 }
 
 export async function loginCommand(options: LoginOptions): Promise<void> {
-    const keySource = options.key ?? process.env.IF_TEAM_TOKEN
+    // Resolve the API key from three possible sources:
+    //   --key           → options.key === true  → prompt silently (no shell history)
+    //   --key <value>   → options.key is string → use directly, warn about history
+    //   (no flag)       → check IF_TEAM_TOKEN env var, else fall through to JWT mode
+    let resolvedKey: string | undefined
+    if (options.key === true) {
+        resolvedKey = await promptPassword('API key: ')
+        if (!resolvedKey) throw new CliError('MISSING_CONTENT', 'API key is required.')
+    } else if (typeof options.key === 'string') {
+        resolvedKey = options.key
+        if (!isJsonMode()) {
+            console.warn(
+                chalk.yellow(
+                    '⚠  Tip: use `--key` without a value to avoid storing the key in shell history.',
+                ),
+            )
+        }
+    } else {
+        resolvedKey = process.env.IF_TEAM_TOKEN
+    }
 
     // ── API key mode ──────────────────────────────────────────────────────────
     // API keys cannot call /auth/profile or /companies — those require Bearer JWT.
     // We temporarily authenticate with email + password to discover the company
     // list, then discard the JWT and store only the API key.
-    if (keySource) {
+    if (resolvedKey) {
         console.log(chalk.dim('Email and password are needed once to discover your companies.'))
         console.log(chalk.dim('They will not be stored.\n'))
 
@@ -63,7 +82,7 @@ export async function loginCommand(options: LoginOptions): Promise<void> {
 
         startSpinner('Validating API key…')
         try {
-            await validateApiKey(keySource, company.id)
+            await validateApiKey(resolvedKey, company.id)
         } finally {
             stopSpinner()
         }
@@ -71,7 +90,7 @@ export async function loginCommand(options: LoginOptions): Promise<void> {
         // JWT is discarded here — only the API key is persisted
         const result = storeCredentials({
             mode: 'api-key',
-            key: keySource,
+            key: resolvedKey,
             companyId: company.id,
             companyName: company.name,
         })
