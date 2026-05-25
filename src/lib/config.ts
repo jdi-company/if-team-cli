@@ -10,7 +10,7 @@ export interface Config {
 }
 
 const DEFAULTS: Config = {
-    baseUrl: 'https://api.if.team',
+    baseUrl: 'https://api.demo.if.team',
 }
 
 export function loadConfig(): Config {

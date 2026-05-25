@@ -26,9 +26,15 @@ export interface ApiCompany {
 }
 
 interface ApiErrorBody {
-    message?: string
+    message?: string | string[]
     error?: string
     status?: number
+}
+
+async function safeJson(res: Response): Promise<ApiErrorBody> {
+    const ct = res.headers.get('content-type') ?? ''
+    if (!ct.includes('application/json')) return {}
+    return res.json().catch(() => ({})) as Promise<ApiErrorBody>
 }
 
 // ─── JWT helpers ──────────────────────────────────────────────────────────────
@@ -108,6 +114,11 @@ export async function apiRequest<T>(
             url.searchParams.set(k, String(v))
         }
     }
+    // Most if.team endpoints require company_id. Inject from stored credentials
+    // unless the caller already provided it explicitly.
+    if (!url.searchParams.has('company_id') && creds && 'companyId' in creds) {
+        url.searchParams.set('company_id', String(creds.companyId))
+    }
 
     const { query: _q, ...fetchOptions } = options
     const res = await fetch(url.toString(), {
@@ -120,9 +131,9 @@ export async function apiRequest<T>(
     })
 
     if (!res.ok) {
-        const body = await res.json().catch(() => ({} as ApiErrorBody)) as ApiErrorBody
+        const body = await safeJson(res)
         const message = Array.isArray(body.message)
-            ? (body.message as string[]).join(', ')
+            ? body.message.join(', ')
             : (body.message ?? `${res.status} ${res.statusText}`)
         throw new CliError('API_ERROR', message)
     }
@@ -141,7 +152,7 @@ export async function loginRequest(email: string, password: string): Promise<Log
     })
 
     if (!res.ok) {
-        const body = await res.json().catch(() => ({} as ApiErrorBody)) as ApiErrorBody
+        const body = await safeJson(res)
         const message = body.message ?? 'Login failed. Check your email and password.'
         throw new CliError('AUTH_FAILED', Array.isArray(message) ? message.join(', ') : message)
     }
@@ -150,18 +161,24 @@ export async function loginRequest(email: string, password: string): Promise<Log
 }
 
 // ─── Validate API key ─────────────────────────────────────────────────────────
+// /auth/profile does not accept API keys — use /subscriptions/current as a
+// lightweight connectivity probe that works with apikey + company_id.
 
-export async function validateApiKey(key: string): Promise<ApiUser> {
+export async function validateApiKey(key: string, companyId: number): Promise<void> {
     const { baseUrl } = loadConfig()
-    const res = await fetch(`${baseUrl}/auth/profile`, {
+    const res = await fetch(`${baseUrl}/subscriptions/current?company_id=${companyId}`, {
         headers: { apikey: key },
     })
 
     if (!res.ok) {
-        throw new CliError('INVALID_TOKEN', 'Invalid API key. Verify the key in your if.team admin dashboard.')
+        if (res.status === 401 || res.status === 403) {
+            throw new CliError(
+                'INVALID_TOKEN',
+                'Invalid API key or company ID. Verify both in your if.team admin dashboard.',
+            )
+        }
+        throw new CliError('API_ERROR', `Validation failed: ${res.status} ${res.statusText}`)
     }
-
-    return res.json() as Promise<ApiUser>
 }
 
 // ─── Server-side logout ───────────────────────────────────────────────────────

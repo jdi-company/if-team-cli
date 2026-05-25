@@ -37,26 +37,33 @@ export function statusCommand(): void {
     }
 
     if (isJsonMode()) {
-        const base = {
-            authenticated: true,
-            mode: creds.mode,
-            email: creds.email,
-            name: creds.name,
-            companyId: creds.companyId,
-            companyName: creds.companyName,
-        }
-        if (creds.mode === 'jwt') {
-            const exp = jwtExpiresAt(creds.accessToken)
-            printJson({ ...base, tokenExpiresAt: exp?.toISOString() ?? null })
+        if (creds.mode === 'api-key') {
+            printJson({
+                authenticated: true,
+                mode: 'api-key',
+                companyId: creds.companyId,
+                companyName: creds.companyName,
+            })
         } else {
-            printJson(base)
+            const exp = jwtExpiresAt(creds.accessToken)
+            printJson({
+                authenticated: true,
+                mode: 'jwt',
+                email: creds.email,
+                name: creds.name,
+                companyId: creds.companyId,
+                companyName: creds.companyName,
+                tokenExpiresAt: exp?.toISOString() ?? null,
+            })
         }
         return
     }
 
     console.log(chalk.green('✔ Authenticated'))
-    console.log(`   Name:    ${creds.name}`)
-    console.log(`   Email:   ${creds.email}`)
+    if (creds.mode === 'jwt') {
+        console.log(`   Name:    ${creds.name}`)
+        console.log(`   Email:   ${creds.email}`)
+    }
     console.log(`   Company: ${creds.companyName} (ID: ${creds.companyId})`)
     console.log(`   Mode:    ${creds.mode === 'api-key' ? 'API key' : 'Email / password (JWT)'}`)
 

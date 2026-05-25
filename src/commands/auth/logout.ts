@@ -20,5 +20,6 @@ export async function logoutCommand(): Promise<void> {
 
     // Always clear local credentials, even if the server call failed
     clearCredentials()
-    printSuccess(`Logged out (${creds.email}).`)
+    const label = creds.mode === 'jwt' ? creds.email : `company ${creds.companyId}`
+    printSuccess(`Logged out (${label}).`)
 }

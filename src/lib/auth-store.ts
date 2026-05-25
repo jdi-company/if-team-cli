@@ -10,10 +10,9 @@ export type StoredCredentials =
     | {
           mode: 'api-key'
           key: string
-          email: string
-          name: string
           companyId: number
           companyName: string
+          // email/name not available — API key cannot call /auth/profile
       }
     | {
           mode: 'jwt'

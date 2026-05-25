@@ -124,9 +124,46 @@ The global `parseAsync().catch` in `src/index.ts` routes `CliError` to the corre
 
 ## API Client
 
-- Base URL comes from the `IF_TEAM_API_URL` environment variable (default: `https://api.if.team`).
-- Token comes from `IF_TEAM_TOKEN` environment variable or stored credentials.
+- **Base URL:** `https://api.demo.if.team` (default). Override with `IF_TEAM_API_URL` env var.
 - The API spec (`docs/api-spec.json`) is the authoritative reference for request/response shapes.
+- `apiRequest()` in `src/lib/api/client.ts` handles auth headers and auto-injects `company_id`.
+
+## if.team Auth Model
+
+if.team has a **two-tier auth system**. Understanding this is critical when adding new commands.
+
+### Tier 1 — API Key (`apikey` header)
+
+Created in the if.team admin dashboard per company. Sent as `apikey: <token>` header.
+
+**Works on:** all business/resource endpoints (projects, tasks, finance, CRM, etc.)  
+**Does NOT work on:** `/auth/*` endpoints (profile, companies, logout, refresh)  
+**Requires:** `company_id` query parameter on virtually every request  
+**Validation probe:** `GET /subscriptions/current?company_id=<id>` — this is the only safe way to verify a key without Bearer auth
+
+### Tier 2 — Bearer JWT (`Authorization: Bearer` header)
+
+Obtained via `POST /auth/login` with email + password. Short-lived; auto-refreshed using the refresh token via `POST /auth/refresh` (sends refresh token as Bearer, no request body).
+
+**Works on:** all endpoints including `/auth/*`  
+**Requires:** `company_id` query parameter on business endpoints  
+**Auto-refresh:** `apiRequest()` checks expiry 30 s early and refreshes silently
+
+### Auth precedence in `apiRequest()`
+
+1. `IF_TEAM_TOKEN` env var → API key mode, session-only, never stored
+2. Stored credentials from keyring → API key or JWT (whichever was used at login)
+3. No credentials → throws `CliError('NO_TOKEN', …)`
+
+### `company_id` injection
+
+`apiRequest()` automatically appends `?company_id=<stored>` to every request unless the caller already provides it in the `query` option. Never omit `company_id` in manual `fetch()` calls outside `apiRequest()`.
+
+### What API key login does NOT give you
+
+- No `email` or `name` — `/auth/profile` rejects API keys with 401
+- No company list — `/companies` also requires Bearer auth
+- The user must provide `company_id` manually during `auth login --key`
 
 ## Testing
 

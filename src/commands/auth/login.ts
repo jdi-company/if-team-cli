@@ -24,43 +24,40 @@ function printStorageWarning(result: StoreResult): void {
 
 export async function loginCommand(options: LoginOptions): Promise<void> {
     // ── API key mode ──────────────────────────────────────────────────────────
+    // API keys cannot call /auth/profile — they only work on business endpoints
+    // that require company_id. We validate by probing /subscriptions/current.
     const keySource = options.key ?? process.env.IF_TEAM_TOKEN
 
     if (keySource) {
-        startSpinner('Validating API key…')
-        let user
-        try {
-            user = await validateApiKey(keySource)
-        } finally {
-            stopSpinner()
-        }
-
-        // API keys are company-scoped; we can't list companies without a
-        // company_id, so ask the user to provide it if it can't be inferred.
-        // (The profile endpoint doesn't return companies for API key auth.)
         const companyIdRaw = await promptText('Company ID (from your admin dashboard): ')
         const companyId = parseInt(companyIdRaw, 10)
         if (isNaN(companyId) || companyId <= 0) {
             throw new CliError('INVALID_OPTIONS', 'Company ID must be a positive number.')
         }
+
+        startSpinner('Validating API key…')
+        try {
+            await validateApiKey(keySource, companyId)
+        } finally {
+            stopSpinner()
+        }
+
         const companyName = await promptText('Company name (for display): ')
 
         const result = storeCredentials({
             mode: 'api-key',
             key: keySource,
-            email: user.email,
-            name: user.name,
             companyId,
             companyName: companyName.trim() || String(companyId),
         })
 
         if (isJsonMode()) {
-            printJson({ mode: 'api-key', email: user.email, name: user.name, companyId })
+            printJson({ mode: 'api-key', companyId, companyName })
             return
         }
 
-        printSuccess(`Logged in as ${chalk.cyan(user.name)} (${user.email})`)
-        console.log(`   Company: ${companyName} (ID: ${companyId})`)
+        printSuccess(`Logged in via API key`)
+        console.log(`   Company: ${companyName.trim() || companyId} (ID: ${companyId})`)
         console.log(result.secure
             ? chalk.dim('   API key stored securely in the system keychain.')
             : '')
