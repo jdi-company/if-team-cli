@@ -23,41 +23,55 @@ function printStorageWarning(result: StoreResult): void {
 }
 
 export async function loginCommand(options: LoginOptions): Promise<void> {
-    // ── API key mode ──────────────────────────────────────────────────────────
-    // API keys cannot call /auth/profile — they only work on business endpoints
-    // that require company_id. We validate by probing /subscriptions/current.
     const keySource = options.key ?? process.env.IF_TEAM_TOKEN
 
+    // ── API key mode ──────────────────────────────────────────────────────────
+    // API keys cannot call /auth/profile or /companies — those require Bearer JWT.
+    // We temporarily authenticate with email + password to discover the company
+    // list, then discard the JWT and store only the API key.
     if (keySource) {
-        const companyIdRaw = await promptText('Company ID (from your admin dashboard): ')
-        const companyId = parseInt(companyIdRaw, 10)
-        if (isNaN(companyId) || companyId <= 0) {
-            throw new CliError('INVALID_OPTIONS', 'Company ID must be a positive number.')
-        }
+        console.log(chalk.dim('Email and password are needed once to discover your companies.'))
+        console.log(chalk.dim('They will not be stored.\n'))
 
-        startSpinner('Validating API key…')
+        const email = await promptText('Email: ')
+        if (!email) throw new CliError('MISSING_CONTENT', 'Email is required.')
+
+        const password = await promptPassword('Password: ')
+        if (!password) throw new CliError('MISSING_CONTENT', 'Password is required.')
+
+        startSpinner('Fetching your companies…')
+        let response
         try {
-            await validateApiKey(keySource, companyId)
+            response = await loginRequest(email, password)
         } finally {
             stopSpinner()
         }
 
-        const companyName = await promptText('Company name (for display): ')
+        const company = await promptCompany(
+            response.companies.map((c) => ({ id: c.id, name: c.name })),
+        )
 
+        startSpinner('Validating API key…')
+        try {
+            await validateApiKey(keySource, company.id)
+        } finally {
+            stopSpinner()
+        }
+
+        // JWT is discarded here — only the API key is persisted
         const result = storeCredentials({
             mode: 'api-key',
             key: keySource,
-            companyId,
-            companyName: companyName.trim() || String(companyId),
+            companyId: company.id,
+            companyName: company.name,
         })
 
         if (isJsonMode()) {
-            printJson({ mode: 'api-key', companyId, companyName })
+            printJson({ mode: 'api-key', companyId: company.id, companyName: company.name })
             return
         }
 
-        printSuccess(`Logged in via API key`)
-        console.log(`   Company: ${companyName.trim() || companyId} (ID: ${companyId})`)
+        printSuccess(`Logged in to ${chalk.cyan(company.name)} via API key`)
         console.log(result.secure
             ? chalk.dim('   API key stored securely in the system keychain.')
             : '')
