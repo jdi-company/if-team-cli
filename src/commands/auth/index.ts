@@ -25,11 +25,8 @@ Examples:
             'after',
             `
 Note: --password is intentionally not supported. Passwords passed as flags
-appear in shell history and process listings. Always prompted interactively.
-
-When --key is used, email + password are prompted once to discover your
-companies via the API. The JWT is immediately discarded — only the API key
-is stored. This avoids the need to look up your company ID manually.
+appear in shell history and process listings. Always prompted interactively
+with silent input (no echo, no dots) — enterprise standard (sudo, ssh, gh).
 
 The IF_TEAM_TOKEN environment variable is also accepted as an API key but is
 session-only — it is never written to disk.`,

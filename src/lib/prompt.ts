@@ -10,8 +10,9 @@ export function promptText(query: string): Promise<string> {
     })
 }
 
-// Renders each character as ● and handles backspace. Falls back to plain
-// readline when stdin is not a TTY (piped input, CI environments).
+// Silent password prompt — nothing is echoed (enterprise standard: sudo, ssh, gh auth login).
+// Echoing dots leaks password length to shoulder-surfing observers.
+// Falls back to plain readline when stdin is not a TTY (piped input, CI).
 export function promptPassword(query: string): Promise<string> {
     if (!process.stdin.isTTY) return promptText(query)
 
@@ -24,43 +25,34 @@ export function promptPassword(query: string): Promise<string> {
         let value = ''
 
         const handler = (char: string) => {
-            switch (char) {
-                case '\r':
-                case '\n':
-                case '': // Ctrl+D — EOF
-                    process.stdin.setRawMode(false)
-                    process.stdin.pause()
-                    process.stdin.removeListener('data', handler)
-                    process.stdout.write('\n')
-                    resolve(value)
-                    break
+            const code = char.charCodeAt(0)
 
-                case '': // Ctrl+C
-                    process.stdin.setRawMode(false)
-                    process.stdin.pause()
-                    process.stdin.removeListener('data', handler)
-                    process.stdout.write('\n')
-                    process.exit(0)
-                    break
+            if (char === '\r' || char === '\n' || code === 4 /* Ctrl+D */) {
+                process.stdin.setRawMode(false)
+                process.stdin.pause()
+                process.stdin.removeListener('data', handler)
+                process.stdout.write('\n')
+                resolve(value)
+                return
+            }
 
-                case '': // Backspace
-                    if (value.length > 0) {
-                        value = value.slice(0, -1)
-                        process.stdout.clearLine(0)
-                        process.stdout.cursorTo(0)
-                        process.stdout.write(query + '●'.repeat(value.length))
-                    }
-                    break
+            if (code === 3 /* Ctrl+C */) {
+                process.stdin.setRawMode(false)
+                process.stdin.pause()
+                process.stdin.removeListener('data', handler)
+                process.stdout.write('\n')
+                process.exit(0)
+            }
 
-                default:
-                    // Iterate over each character — paste events arrive as a
-                    // multi-character string in one data event, not char by char.
-                    for (const c of char) {
-                        if (c >= ' ') {
-                            value += c
-                            process.stdout.write('●')
-                        }
-                    }
+            if (code === 127 /* Backspace */) {
+                if (value.length > 0) value = value.slice(0, -1)
+                return
+            }
+
+            // Paste events arrive as a multi-character string in one data event.
+            // Iterate each character; accept printable chars only, echo nothing.
+            for (const c of char) {
+                if (c.charCodeAt(0) >= 32) value += c
             }
         }
 
