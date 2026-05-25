@@ -1,0 +1,177 @@
+import { type StoredCredentials, loadCredentials, storeCredentials } from '../auth-store.js'
+import { loadConfig } from '../config.js'
+import { CliError } from '../errors.js'
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+export interface LoginResponse {
+    access_token: string
+    refresh_token: string
+    user: ApiUser
+    companies: ApiCompany[]
+}
+
+export interface ApiUser {
+    id: number
+    email: string
+    name: string
+    phone?: string
+    avatar?: string
+}
+
+export interface ApiCompany {
+    id: number
+    name: string
+    owner_id: number
+}
+
+interface ApiErrorBody {
+    message?: string
+    error?: string
+    status?: number
+}
+
+// ─── JWT helpers ──────────────────────────────────────────────────────────────
+
+function jwtExpiresAt(token: string): number {
+    try {
+        const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString())
+        return (payload.exp as number) * 1000
+    } catch {
+        return 0
+    }
+}
+
+function isExpired(token: string): boolean {
+    // Treat as expired 30 s early to avoid race conditions
+    return jwtExpiresAt(token) < Date.now() + 30_000
+}
+
+// ─── Auth header ──────────────────────────────────────────────────────────────
+
+async function buildAuthHeaders(
+    creds: StoredCredentials,
+    baseUrl: string,
+): Promise<Record<string, string>> {
+    if (creds.mode === 'api-key') {
+        return { apikey: creds.key }
+    }
+
+    let { accessToken, refreshToken } = creds
+
+    if (isExpired(accessToken)) {
+        const res = await fetch(`${baseUrl}/auth/refresh`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${refreshToken}` },
+        })
+
+        if (!res.ok) {
+            throw new CliError(
+                'AUTH_ERROR',
+                'Your session has expired. Run `if-team auth login` to re-authenticate.',
+            )
+        }
+
+        const data = (await res.json()) as { access_token: string; refresh_token?: string }
+        accessToken = data.access_token
+        if (data.refresh_token) refreshToken = data.refresh_token
+
+        storeCredentials({ ...creds, accessToken, refreshToken })
+    }
+
+    return { Authorization: `Bearer ${accessToken}` }
+}
+
+// ─── Core request ─────────────────────────────────────────────────────────────
+
+export async function apiRequest<T>(
+    path: string,
+    options: RequestInit & { query?: Record<string, string | number> } = {},
+): Promise<T> {
+    // IF_TEAM_TOKEN env var takes precedence over stored credentials (session-only)
+    const envKey = process.env.IF_TEAM_TOKEN
+    const { baseUrl } = loadConfig()
+
+    const creds = envKey
+        ? ({ mode: 'api-key', key: envKey } as StoredCredentials)
+        : loadCredentials()
+
+    if (!creds) {
+        throw new CliError('NO_TOKEN', 'Not authenticated. Run `if-team auth login`.')
+    }
+
+    const authHeaders = await buildAuthHeaders(creds, baseUrl)
+
+    const url = new URL(`${baseUrl}${path}`)
+    if (options.query) {
+        for (const [k, v] of Object.entries(options.query)) {
+            url.searchParams.set(k, String(v))
+        }
+    }
+
+    const { query: _q, ...fetchOptions } = options
+    const res = await fetch(url.toString(), {
+        ...fetchOptions,
+        headers: {
+            'Content-Type': 'application/json',
+            ...(fetchOptions.headers as Record<string, string>),
+            ...authHeaders,
+        },
+    })
+
+    if (!res.ok) {
+        const body = await res.json().catch(() => ({} as ApiErrorBody)) as ApiErrorBody
+        const message = Array.isArray(body.message)
+            ? (body.message as string[]).join(', ')
+            : (body.message ?? `${res.status} ${res.statusText}`)
+        throw new CliError('API_ERROR', message)
+    }
+
+    return res.json() as Promise<T>
+}
+
+// ─── Unauthenticated login request ────────────────────────────────────────────
+
+export async function loginRequest(email: string, password: string): Promise<LoginResponse> {
+    const { baseUrl } = loadConfig()
+    const res = await fetch(`${baseUrl}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ login: email, password }),
+    })
+
+    if (!res.ok) {
+        const body = await res.json().catch(() => ({} as ApiErrorBody)) as ApiErrorBody
+        const message = body.message ?? 'Login failed. Check your email and password.'
+        throw new CliError('AUTH_FAILED', Array.isArray(message) ? message.join(', ') : message)
+    }
+
+    return res.json() as Promise<LoginResponse>
+}
+
+// ─── Validate API key ─────────────────────────────────────────────────────────
+
+export async function validateApiKey(key: string): Promise<ApiUser> {
+    const { baseUrl } = loadConfig()
+    const res = await fetch(`${baseUrl}/auth/profile`, {
+        headers: { apikey: key },
+    })
+
+    if (!res.ok) {
+        throw new CliError('INVALID_TOKEN', 'Invalid API key. Verify the key in your if.team admin dashboard.')
+    }
+
+    return res.json() as Promise<ApiUser>
+}
+
+// ─── Server-side logout ───────────────────────────────────────────────────────
+
+export async function logoutRequest(): Promise<void> {
+    // Best-effort — don't throw if the request fails; local credentials are
+    // cleared regardless in the logout command.
+    try {
+        await apiRequest('/auth/logout', { method: 'POST' })
+    } catch {
+        // ignore
+    }
+}
