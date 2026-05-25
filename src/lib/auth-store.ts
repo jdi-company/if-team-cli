@@ -1,3 +1,4 @@
+import { Entry } from '@napi-rs/keyring'
 import { unlinkSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
@@ -24,13 +25,11 @@ export type StoredCredentials =
           companyName: string
       }
 
-// Lazy-load keyring so startup doesn't fail on systems without a credential manager
-function getEntry(): import('@napi-rs/keyring').Entry | null {
+function getEntry(): Entry | null {
     try {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const { Entry } = require('@napi-rs/keyring') as typeof import('@napi-rs/keyring')
         return new Entry(SERVICE, ACCOUNT)
     } catch {
+        // Keychain service unavailable (headless Linux without libsecret, etc.)
         return null
     }
 }
@@ -43,12 +42,13 @@ export function storeCredentials(creds: StoredCredentials): StoreResult {
     if (entry) {
         try {
             entry.setPassword(payload)
+            // Clean up any stale fallback file left from a previous failed attempt
+            try { unlinkSync(FALLBACK_PATH) } catch { /* already gone */ }
             return { secure: true }
         } catch {
-            // keyring available but write failed — fall through
+            // Keychain available but write failed — fall through
         }
     }
-    // Fallback: write to file with restrictive permissions (owner read/write only)
     mkdirSync(join(homedir(), '.config', 'if-team-cli'), { recursive: true })
     writeFileSync(FALLBACK_PATH, payload, { mode: 0o600 })
     return { secure: false, fallbackPath: FALLBACK_PATH }
@@ -74,15 +74,7 @@ export function loadCredentials(): StoredCredentials | null {
 export function clearCredentials(): void {
     const entry = getEntry()
     if (entry) {
-        try {
-            entry.deletePassword()
-        } catch {
-            // already gone
-        }
+        try { entry.deletePassword() } catch { /* already gone */ }
     }
-    try {
-        unlinkSync(FALLBACK_PATH)
-    } catch {
-        // already gone
-    }
+    try { unlinkSync(FALLBACK_PATH) } catch { /* already gone */ }
 }

@@ -8,7 +8,7 @@ export interface LoginResponse {
     access_token: string
     refresh_token: string
     user: ApiUser
-    companies: ApiCompany[]
+    companies?: ApiCompany[]
 }
 
 export interface ApiUser {
@@ -139,6 +139,26 @@ export async function apiRequest<T>(
     }
 
     return res.json() as Promise<T>
+}
+
+// ─── Fetch company list with a temporary JWT ─────────────────────────────────
+// /companies requires Bearer auth — API keys are rejected.
+
+export async function getCompanies(accessToken: string): Promise<ApiCompany[]> {
+    const { baseUrl } = loadConfig()
+    const res = await fetch(`${baseUrl}/companies`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+    })
+    if (!res.ok) {
+        const body = await safeJson(res)
+        const message = Array.isArray(body.message)
+            ? body.message.join(', ')
+            : (body.message ?? `${res.status} ${res.statusText}`)
+        throw new CliError('API_ERROR', `Could not fetch companies: ${message}`)
+    }
+    const data = await res.json() as ApiCompany[] | { data: ApiCompany[] }
+    // /companies may return a plain array or a paginated { data: [] } envelope
+    return Array.isArray(data) ? data : data.data
 }
 
 // ─── Unauthenticated login request ────────────────────────────────────────────

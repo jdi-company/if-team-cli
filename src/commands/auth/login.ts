@@ -1,5 +1,5 @@
 import chalk from 'chalk'
-import { loginRequest, validateApiKey } from '../../lib/api/client.js'
+import { getCompanies, loginRequest, validateApiKey } from '../../lib/api/client.js'
 import { type StoreResult, storeCredentials } from '../../lib/auth-store.js'
 import { CliError } from '../../lib/errors.js'
 import { isJsonMode } from '../../lib/global-args.js'
@@ -47,8 +47,18 @@ export async function loginCommand(options: LoginOptions): Promise<void> {
             stopSpinner()
         }
 
+        let companyList = response.companies ?? []
+        if (companyList.length === 0) {
+            startSpinner('Fetching your companies…')
+            try {
+                companyList = await getCompanies(response.access_token)
+            } finally {
+                stopSpinner()
+            }
+        }
+
         const company = await promptCompany(
-            response.companies.map((c) => ({ id: c.id, name: c.name })),
+            companyList.map((c) => ({ id: c.id, name: c.name })),
         )
 
         startSpinner('Validating API key…')
@@ -96,8 +106,18 @@ export async function loginCommand(options: LoginOptions): Promise<void> {
         stopSpinner()
     }
 
+    let companyList = response.companies ?? []
+    if (companyList.length === 0) {
+        startSpinner('Fetching your companies…')
+        try {
+            companyList = await getCompanies(response.access_token)
+        } finally {
+            stopSpinner()
+        }
+    }
+
     const company = await promptCompany(
-        response.companies.map((c) => ({ id: c.id, name: c.name })),
+        companyList.map((c) => ({ id: c.id, name: c.name })),
     )
 
     const result = storeCredentials({

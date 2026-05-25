@@ -53,10 +53,13 @@ export function promptPassword(query: string): Promise<string> {
                     break
 
                 default:
-                    // Accept only printable ASCII + extended characters
-                    if (char >= ' ') {
-                        value += char
-                        process.stdout.write('●')
+                    // Iterate over each character — paste events arrive as a
+                    // multi-character string in one data event, not char by char.
+                    for (const c of char) {
+                        if (c >= ' ') {
+                            value += c
+                            process.stdout.write('●')
+                        }
                     }
             }
         }
