@@ -1,5 +1,5 @@
 import { apiRequest } from '../../lib/api/client.js'
-import { isJsonMode, isNdjsonMode } from '../../lib/global-args.js'
+import { isJsonMode, isNdjsonMode, isQuietMode } from '../../lib/global-args.js'
 import {
     asNumber,
     collectStrings,
@@ -71,6 +71,10 @@ export async function createCommand(options: CreateOptions): Promise<void> {
     }
     if (isNdjsonMode()) {
         printNdjson(res)
+        return
+    }
+    if (isQuietMode()) {
+        if (res.id !== undefined) console.log(res.id)
         return
     }
     printSuccess(res.id ? `Project created (ID: ${res.id}).` : 'Project created.')

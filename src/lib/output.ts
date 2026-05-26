@@ -1,5 +1,6 @@
 import chalk from 'chalk'
 import type { CliError } from './errors.js'
+import { isQuietMode } from './global-args.js'
 
 export function formatError(err: CliError): string {
     const lines = [chalk.red(`✖ ${err.message}`)]
@@ -27,6 +28,7 @@ export function printNdjson(data: unknown): void {
 }
 
 export function printSuccess(message: string): void {
+    if (isQuietMode()) return
     console.log(chalk.green(`✔ ${message}`))
 }
 

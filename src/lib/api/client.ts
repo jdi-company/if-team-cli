@@ -1,6 +1,7 @@
 import { type StoredCredentials, loadCredentials, storeCredentials } from '../auth-store.js'
 import { loadConfig } from '../config.js'
 import { CliError } from '../errors.js'
+import { log } from '../logger.js'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -29,6 +30,24 @@ interface ApiErrorBody {
     message?: string | string[]
     error?: string
     status?: number
+    errors?: Record<string, { constraints?: string[]; children?: unknown }>
+}
+
+// Flatten the if.team 422 `errors` map into one human-friendly line per field.
+function flattenValidationErrors(
+    errors: NonNullable<ApiErrorBody['errors']> | undefined,
+): string[] {
+    if (!errors) return []
+    const out: string[] = []
+    for (const [field, info] of Object.entries(errors)) {
+        const cs = info?.constraints
+        if (Array.isArray(cs) && cs.length > 0) {
+            out.push(`${field}: ${cs.join('; ')}`)
+        } else {
+            out.push(field)
+        }
+    }
+    return out
 }
 
 async function safeJson(res: Response): Promise<ApiErrorBody> {
@@ -143,6 +162,10 @@ export async function apiRequest<T>(
     }
 
     const { query: _q, ...fetchOptions } = options
+    log(2, `→ ${fetchOptions.method ?? 'GET'} ${url.toString()}`)
+    if (fetchOptions.body !== undefined && fetchOptions.body !== null) {
+        log(3, '  body:', typeof fetchOptions.body === 'string' ? fetchOptions.body : '<binary>')
+    }
     const res = await fetch(url.toString(), {
         ...fetchOptions,
         headers: {
@@ -151,13 +174,20 @@ export async function apiRequest<T>(
             ...authHeaders,
         },
     })
+    log(2, `← ${res.status} ${res.statusText}`)
 
     if (!res.ok) {
         const body = await safeJson(res)
         const message = Array.isArray(body.message)
             ? body.message.join(', ')
             : (body.message ?? `${res.status} ${res.statusText}`)
-        throw new CliError('API_ERROR', message)
+        const hints = flattenValidationErrors(body.errors)
+        // Surface HTTP 404 with a distinct code so callers can re-throw a
+        // friendly entity-scoped message without parsing the server text.
+        if (res.status === 404) {
+            throw new CliError('NOT_FOUND', message, hints)
+        }
+        throw new CliError('API_ERROR', message, hints)
     }
 
     return res.json() as Promise<T>

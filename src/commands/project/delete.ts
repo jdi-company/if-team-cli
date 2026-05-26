@@ -33,7 +33,7 @@ export async function deleteCommand(
             query,
         })
     } catch (err) {
-        if (err instanceof CliError && /not\s*found|404/i.test(err.message)) {
+        if (err instanceof CliError && err.code === 'NOT_FOUND') {
             throw new CliError('NOT_FOUND', `Project "${id}" not found.`)
         }
         throw err
