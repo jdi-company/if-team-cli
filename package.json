@@ -30,20 +30,20 @@
   },
   "preferGlobal": true,
   "engines": {
-    "node": ">=20.18.1"
+    "node": ">=24.0.0"
   },
   "files": [
     "dist"
   ],
   "dependencies": {
     "@napi-rs/keyring": "^1.3.0",
-    "chalk": "5.4.1",
-    "commander": "14.0.3",
-    "ora": "8.2.0"
+    "chalk": "^5.6.2",
+    "commander": "^14.0.3",
+    "ora": "^9.4.0"
   },
   "devDependencies": {
-    "@types/node": "22.15.21",
-    "typescript": "5.8.3",
-    "vitest": "3.1.4"
+    "@types/node": "^24.12.4",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.7"
   }
 }

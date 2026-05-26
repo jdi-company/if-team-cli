@@ -38,7 +38,7 @@ afterEach(() => {
 })
 
 function capturedOutput(): string {
-    return consoleSpy.mock.calls.map((c) => String(c[0])).join('\n')
+    return consoleSpy.mock.calls.map((c: unknown[]) => String(c[0])).join('\n')
 }
 
 describe('statusCommand — not authenticated', () => {
