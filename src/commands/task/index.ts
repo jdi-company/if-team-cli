@@ -1,4 +1,5 @@
 import type { Command } from 'commander'
+import { collectNumbers, collectStrings } from '../../lib/mutate.js'
 
 export function registerTaskCommand(program: Command): void {
     const task = program
@@ -15,7 +16,8 @@ Examples:
   if-team task statuses                             # available status IDs
   if-team task priorities                           # available priority IDs
   if-team task show 4567                            # full details for one task
-  if-team task 4567                                 # same as \`show\` (implicit view)`,
+  if-team task 4567                                 # same as \`show\` (implicit view)
+  if-team task delete 4567 --yes                    # delete without prompt`,
         )
 
     task.command('list')
@@ -67,5 +69,60 @@ Examples:
         .action(async (id, options) => {
             const { showCommand } = await import('./show.js')
             return showCommand(id, options)
+        })
+
+    task.command('create')
+        .description('Create a task in a project')
+        .requiredOption('--project <id>', 'Project ID (required)')
+        .option('--name <string>', 'Task name')
+        .option('--description <string>', 'Description')
+        .option('--status <id>', 'Status ID')
+        .option('--priority <id>', 'Priority ID')
+        .option('--iteration <id>', 'Iteration ID')
+        .option('--start-at <date>', 'Start date (YYYY-MM-DD)')
+        .option('--finish-at <date>', 'Finish date (YYYY-MM-DD)')
+        .option('--time-plan <seconds>', 'Planned time in seconds')
+        .option('--parent <id>', 'Parent task ID')
+        .option('--participant <id>', 'Participant ID (repeatable)', collectNumbers('--participant'))
+        .option('--client <id>', 'Client ID (repeatable)', collectStrings)
+        .option('--data <json>', 'JSON body (string, @file, or - for stdin); flags override its fields')
+        .option('--json', 'Output the raw API response as pretty JSON')
+        .option('--ndjson', 'Output the raw API response as a single compact JSON line')
+        .action(async (options) => {
+            const { createCommand } = await import('./create.js')
+            return createCommand(options)
+        })
+
+    task.command('update <id>')
+        .description('Update a task')
+        .option('--name <string>', 'Task name')
+        .option('--description <string>', 'Description')
+        .option('--status <id>', 'Status ID')
+        .option('--priority <id>', 'Priority ID')
+        .option('--iteration <id>', 'Iteration ID')
+        .option('--project <id>', 'Move to a different project ID')
+        .option('--start-at <date>', 'Start date (YYYY-MM-DD)')
+        .option('--finish-at <date>', 'Finish date (YYYY-MM-DD)')
+        .option('--time-plan <seconds>', 'Planned time in seconds')
+        .option('--participant <id>', 'Participant ID (repeatable)', collectNumbers('--participant'))
+        .option('--client <id>', 'Client ID (repeatable)', collectStrings)
+        .option('--data <json>', 'JSON body (string, @file, or - for stdin); flags override its fields')
+        .option('--yes', 'Skip the confirmation prompt')
+        .option('--json', 'Output the raw API response as pretty JSON')
+        .option('--ndjson', 'Output the raw API response as a single compact JSON line')
+        .action(async (id, options) => {
+            const { updateCommand } = await import('./update.js')
+            return updateCommand(id, options)
+        })
+
+    task.command('delete <id>')
+        .description('Delete a task')
+        .option('--stop', 'Stop active time tracking before delete (default: true; use --no-stop to disable)', true)
+        .option('--yes', 'Skip the confirmation prompt')
+        .option('--json', 'Output the raw API response as pretty JSON')
+        .option('--ndjson', 'Output the raw API response as a single compact JSON line')
+        .action(async (id, options) => {
+            const { deleteCommand } = await import('./delete.js')
+            return deleteCommand(id, options)
         })
 }

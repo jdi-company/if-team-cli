@@ -104,6 +104,63 @@ if-team iteration 345                               # same as `show` (implicit v
 Use `--ndjson` on `show` to get one compact JSON line — handy when streaming
 context to an LLM or piping through `jq`.
 
+### Creating, updating, and deleting
+
+Every resource supports `create` (POST), `update <id>` (PATCH), and
+`delete <id>` (DELETE). `create` and `update` accept common fields as
+**named flags** and the full DTO as `--data` (JSON literal, `@file.json`, or
+`-` for stdin). Named flags override fields from `--data`.
+
+`update` and `delete` prompt for confirmation by default — pass `--yes` to
+skip (required in non-interactive contexts: `--json` mode, piped stdin, CI).
+
+```bash
+# Projects
+if-team project create --name "New site" --status 5 --responsible 10 \
+  --type fixed --amount 5000 --currency 2 --client 7
+if-team project update 1234 --status 3 --finish-at 2026-06-30 --yes
+if-team project update 1234 --data '{"custom_fields":[{"id":1,"value":"X"}]}' --yes
+
+# Tasks
+if-team task create --project 12 --name "Wire up auth" --priority 2 \
+  --status 3 --time-plan 7200 --participant 5
+if-team task update 4567 --status 6 --finish-at 2026-06-15 --yes
+# (The API requires start_at on task updates — include --start-at if you hit a 422.)
+
+# Iterations
+if-team iteration create --project 12 --name "2026/Q3/S1" \
+  --start-at 2026-07-01 --finish-at 2026-07-14 --hours 80 --to-project-amount
+if-team iteration update 345 --status 2300 --yes
+```
+
+Pipe JSON in from another command or a file:
+
+```bash
+echo '{"name":"My task","client_ids":["7"]}' | if-team task create --project 12 --data -
+if-team task update 4567 --data @patch.json --yes
+```
+
+Delete a resource:
+
+```bash
+# Projects
+if-team project delete 1234 --yes
+if-team project delete 1234 --transaction-deletion-method COMPLETE_REMOVAL --yes
+
+# Tasks
+if-team task delete 4567 --yes
+if-team task delete 4567 --no-stop --yes   # leave active time tracking running
+
+# Iterations
+if-team iteration delete 345 --yes
+```
+
+`delete` prints `About to delete <resource> <id>.` and asks `Continue? [y/N]`
+unless `--yes` is passed. In `--json` / `--ndjson` mode the prompt is skipped
+and you must pass `--yes` explicitly. Task delete sends the API-required
+`stop` query as `true` by default; pass `--no-stop` to keep an active timer
+running.
+
 ## Local Development
 
 ```bash

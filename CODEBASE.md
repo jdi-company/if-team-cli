@@ -44,25 +44,39 @@ src/
 │  │  ├─ login.ts         # Dual-mode: API key (Option A) + email/password
 │  │  ├─ logout.ts        # Server-side logout + keychain clear
 │  │  └─ status.ts        # Shows mode, company, JWT expiry
-│  ├─ project/            # Read-only project browsing
-│  │  ├─ index.ts         # list / statuses / show (+ implicit `view`)
+│  ├─ project/            # Project browsing + mutations
+│  │  ├─ index.ts         # list / statuses / show / create / update / delete (+ implicit `view`)
 │  │  ├─ list.ts          # buildQuery() + listCommand() — --status, --page, --limit
 │  │  ├─ show.ts          # parseId() + showCommand() — GET /projects/{id}
-│  │  └─ statuses.ts      # GET /project_statuses
-│  ├─ task/               # Read-only task browsing
-│  │  ├─ index.ts         # list / statuses / priorities / show (+ implicit `view`)
+│  │  ├─ statuses.ts      # GET /project_statuses
+│  │  ├─ create.ts        # buildCreateBody() + createCommand() — POST /projects
+│  │  ├─ update.ts        # buildUpdateBody() + updateCommand() — PATCH /projects/{id}
+│  │  └─ delete.ts        # deleteCommand() — DELETE /projects/{id}
+│  │                      # optional --transaction-deletion-method query
+│  ├─ task/               # Task browsing + mutations
+│  │  ├─ index.ts         # list / statuses / priorities / show / create / update / delete
 │  │  ├─ list.ts          # buildQuery() + listCommand() — --status, --project,
 │  │  │                   # --start-at, --finish-at, --page, --limit
 │  │  ├─ show.ts          # parseId() + showCommand() — GET /tasks/{id}
 │  │  │                   # (unwraps TaskPageDocs envelope: response.task)
 │  │  ├─ statuses.ts      # GET /task_statuses
-│  │  └─ priorities.ts    # GET /task_priorities
-│  └─ iteration/          # Read-only iteration browsing (per-project)
-│     ├─ index.ts         # list <project_id> / statuses / show (+ implicit `view`)
+│  │  ├─ priorities.ts    # GET /task_priorities
+│  │  ├─ create.ts        # parseProjectId() + buildCreateBody() — POST /tasks
+│  │  │                   # (project_id required as query param)
+│  │  ├─ update.ts        # buildUpdateBody() + updateCommand() — PATCH /tasks/{id}
+│  │  └─ delete.ts        # deleteCommand() — DELETE /tasks/{id}
+│  │                      # required `stop` query (default true; --no-stop disables)
+│  └─ iteration/          # Iteration browsing + mutations (per-project)
+│     ├─ index.ts         # list <project_id> / statuses / show / create / update / delete
 │     ├─ list.ts          # parseProjectId() + buildQuery() — required <project_id>
 │     │                   # positional, --status, --page, --limit
 │     ├─ show.ts          # parseId() + showCommand() — GET /iterations/{id}
-│     └─ statuses.ts      # GET /iteration_statuses
+│     ├─ statuses.ts      # GET /iteration_statuses
+│     ├─ create.ts        # parseProjectId() + buildCreateBody() — POST /iterations
+│     │                   # (project_id required as query param)
+│     ├─ update.ts        # buildUpdateBody() + updateCommand() — PATCH /iterations/{id}
+│     └─ delete.ts        # deleteCommand() — DELETE /iterations/{id}
+│                         # optional --transaction-deletion-method query
 └─ lib/                   # Shared utilities — don't reimplement
    ├─ api/
    │  └─ client.ts        # apiRequest(), loginRequest(), getCompanies(),
@@ -74,6 +88,10 @@ src/
    ├─ errors.ts           # CliError(code, message, hints?) + ErrorCode union
    ├─ global-args.ts      # isJsonMode(), isNdjsonMode()
    ├─ logger.ts           # initializeLogger(), log(level, …) — -v verbosity
+   ├─ mutate.ts           # parseDataInput (JSON literal | @file | -),
+   │                      # mergeBody (flag overlay), confirmMutation,
+   │                      # confirmDeletion, asNumber, collectStrings,
+   │                      # collectNumbers
    ├─ output.ts           # formatError, formatErrorJson, printJson, printNdjson,
    │                      # printSuccess, printTable, printKeyValue
    ├─ prompt.ts           # promptText(), promptPassword() (silent — no echo),
@@ -212,7 +230,11 @@ curl -s https://api.demo.if.team/api-json -o docs/api-spec.json
 4. `src/commands/task/show.ts` — canonical show command (`parseId` export,
    `--json` / `--ndjson` / key-value output, 404 → `NOT_FOUND` mapping,
    envelope unwrapping when the API wraps the entity)
-5. `src/lib/api/client.ts` — how to call the API (auth, company_id injection, refresh)
-6. `src/lib/auth-store.ts` — credential storage model
-7. `AGENTS.md` — rules you must follow (especially the auth model section)
-8. `docs/api-spec.json` — API reference (OpenAPI 3.0)
+5. `src/commands/iteration/create.ts` + `update.ts` — canonical mutation
+   commands (named flags + `--data` blend, `buildCreateBody`/`buildUpdateBody`
+   export for tests, `confirmMutation` on update)
+6. `src/lib/api/client.ts` — how to call the API (auth, company_id injection, refresh)
+7. `src/lib/mutate.ts` — shared mutation helpers (--data parsing, body merging, confirm)
+8. `src/lib/auth-store.ts` — credential storage model
+9. `AGENTS.md` — rules you must follow (especially the auth model section)
+10. `docs/api-spec.json` — API reference (OpenAPI 3.0)

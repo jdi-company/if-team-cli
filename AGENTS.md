@@ -89,6 +89,58 @@ Canonical examples: `src/commands/task/list.ts`, `src/commands/task/show.ts`. Fo
 - **Human output**: list → `printTable(rows, columns)` then a footer `Showing X of Y (page N, limit L)`; show → `printKeyValue([['Key', value], …])`. Both helpers live in `src/lib/output.ts`.
 - **i18n-shaped fields**: some list-item fields wrap their value in an object (e.g. `name: { name: "..." }`, `finish_at: { date, show_time, color }`). Check `docs/api-spec.json` for the actual schema before assuming a field is a primitive — the spec is authoritative.
 
+## Create, update & delete commands (mutation pattern)
+
+Canonical examples: `src/commands/iteration/create.ts`, `src/commands/iteration/update.ts`, `src/commands/iteration/delete.ts`.
+
+- **Named flags + `--data` blend**: expose common DTO fields as `.option('--name', …)`,
+  `.option('--status <id>', …)` etc.; expose the rest of the DTO via a single
+  `--data <json>` flag (literal JSON string, `@path/to/file.json`, or `-` for
+  stdin). Named flags override fields with the same key from `--data` — this lets
+  callers fix typos without re-emitting the whole body.
+- **Body construction is testable**: export `buildCreateBody(options)` /
+  `buildUpdateBody(options)` from each command file. They take only the parsed
+  flag object and return the merged body — no `apiRequest` involvement, no I/O.
+- **Use shared helpers in `src/lib/mutate.ts`**: `parseDataInput(input)` handles
+  the JSON / `@file` / `-` triad and throws `INVALID_OPTIONS` on parse errors.
+  `mergeBody(data, flags)` overlays flag values onto `--data`, skipping
+  `undefined`s (Commander leaves unset options undefined). `asNumber(value, flag)`
+  coerces numeric strings and throws `INVALID_OPTIONS` for non-numeric input.
+  `collectStrings` / `collectNumbers(flag)` are Commander collectors for
+  repeatable flags — pass them as the third arg to `.option(...)` **without** a
+  default value, so unset flags stay `undefined` instead of `[]`.
+- **Light validation**: don't codify each DTO's `required` list. Send what the
+  user provided and let the API return 422 with field errors. The CLI surfaces
+  the error via `CliError('API_ERROR', …)` from `apiRequest`.
+- **`update` requires confirmation**: call `confirmMutation(title, body, options)`
+  before the PATCH. It prints a `key: value` summary and prompts `Continue? [y/N]`.
+  `--yes` skips the prompt; non-TTY contexts (JSON mode, piped stdin) without
+  `--yes` throw `CONFIRMATION_REQUIRED`.
+- **`delete` requires confirmation**: call `confirmDeletion(summary, options)`
+  before the DELETE. Same `--yes` / non-TTY / JSON-mode contract as
+  `confirmMutation`, but prints only the bold summary line — no body block,
+  since delete has no DTO. Negative answer throws `ABORTED`.
+- **Delete has no body and no `buildDeleteBody`**: there's no DTO worth
+  unit-testing; existing `parseId` coverage from `show.ts` is enough. The 404
+  mapping is identical to update.
+- **Task delete: mandatory `stop` query**: `DELETE /tasks/{id}` requires `stop`
+  (boolean) per the spec. Expose as `.option('--stop', '…', true)` so Commander
+  synthesises `--no-stop`; serialise to the query as `'true'` / `'false'`
+  because `apiRequest`'s `query` is typed `Record<string, string | number>`.
+- **Project & iteration delete: optional `--transaction-deletion-method`**:
+  pass through to the query only when set (no default). The API decides
+  behaviour when omitted; example value is `COMPLETE_REMOVAL`.
+- **Reject empty updates**: throw `CliError('NO_CHANGES', …)` when the merged
+  body is `{}` — saves a pointless API round-trip.
+- **Required path/query params as positional or `requiredOption`**: e.g.
+  `iteration update <id>` (positional), `task create --project <id>`
+  (`.requiredOption(...)`). Commander enforces these at parse time.
+- **POST endpoints that take extra query params**: pass them via
+  `apiRequest('/tasks', { method: 'POST', query: { project_id }, body: … })`.
+  `apiRequest` still auto-injects `company_id`.
+- **404 mapping**: same as for show commands — catch `CliError` from
+  `apiRequest`, match `/not\s*found|404/i`, re-throw `CliError('NOT_FOUND', …)`.
+
 ## Errors
 
 Throw `CliError(code, message, hints?)` from `src/lib/errors.ts` for anything user-facing:

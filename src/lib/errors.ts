@@ -25,6 +25,8 @@ export type ErrorCode =
     | 'ALREADY_EXISTS'
     | 'NO_CHANGES'
     | 'FETCH_FAILED'
+    | 'CONFIRMATION_REQUIRED'
+    | 'ABORTED'
     // Escape hatch
     | (string & {})
 
