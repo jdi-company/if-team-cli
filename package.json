@@ -1,6 +1,6 @@
 {
   "name": "if-team-cli",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "TypeScript CLI for if.team",
   "type": "module",
   "main": "dist/index.js",
