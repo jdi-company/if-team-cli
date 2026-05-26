@@ -86,7 +86,7 @@ src/
    ├─ config.ts           # Non-sensitive config (~/.config/if-team-cli/config.json)
    │                      # baseUrl only — never stores secrets
    ├─ errors.ts           # CliError(code, message, hints?) + ErrorCode union
-   ├─ global-args.ts      # isJsonMode(), isNdjsonMode()
+   ├─ global-args.ts      # isJsonMode(), isNdjsonMode(), isQuietMode()
    ├─ logger.ts           # initializeLogger(), log(level, …) — -v verbosity
    ├─ mutate.ts           # parseDataInput (JSON literal | @file | -),
    │                      # mergeBody (flag overlay), confirmMutation,
@@ -129,9 +129,12 @@ src/
 
 - **`api/client.ts`** — `apiRequest<T>(path, options?)`: authenticated fetch
   wrapper. Injects auth header (Bearer or `apikey:`), auto-injects `company_id`
-  from stored credentials, auto-refreshes expired JWTs. Also exports
-  `loginRequest()`, `getCompanies(accessToken)`, `validateApiKey(key, companyId)`,
-  `logoutRequest()`.
+  from stored credentials, auto-refreshes expired JWTs. On error, throws
+  `CliError('NOT_FOUND', …)` for HTTP 404 (so callers check `err.code`,
+  not server message text) and flattens any 422 `errors` map into
+  `CliError` hints. Emits `-vv` request/response lines and `-vvv` body via
+  `log()`. Also exports `loginRequest()`, `getCompanies(accessToken)`,
+  `validateApiKey(key, companyId)`, `logoutRequest()`.
 - **`auth-store.ts`** — `storeCredentials()`, `loadCredentials()`,
   `clearCredentials()`. Uses `@napi-rs/keyring` (macOS Keychain / Windows
   Credential Manager / Linux libsecret). Falls back to a `chmod 600` file at
@@ -151,14 +154,14 @@ src/
   anything user-facing. `ErrorCode` union covers common codes; extend when
   adding new error states.
 - **`output.ts`** — `formatError(err)`, `formatErrorJson(err)`,
-  `printJson(data)`, `printNdjson(data)`, `printSuccess(msg)`,
-  `printTable(rows, columns)` (aligned table; renders "(no results)" when
-  empty), `printKeyValue(entries)` (aligned `key: value` block; renders
-  `null`/`undefined` as em-dash).
+  `printJson(data)`, `printNdjson(data)`, `printSuccess(msg)` (no-ops under
+  `--quiet`), `printTable(rows, columns)` (aligned table; renders
+  "(no results)" when empty), `printKeyValue(entries)` (aligned `key: value`
+  block; renders `null`/`undefined` as em-dash).
 - **`spinner.ts`** — `startSpinner(text)`, `stopSpinner()`,
   `succeedSpinner(text?)`, `failSpinner(text?)`. Auto-disabled in
   `--json` / `--ndjson` / `--no-spinner` modes.
-- **`global-args.ts`** — `isJsonMode()`, `isNdjsonMode()`.
+- **`global-args.ts`** — `isJsonMode()`, `isNdjsonMode()`, `isQuietMode()`.
 - **`logger.ts`** — `initializeLogger()`, `log(level, …)` (levels 1–4).
 
 ## if.team API

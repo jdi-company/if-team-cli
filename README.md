@@ -124,7 +124,10 @@ if-team project update 1234 --data '{"custom_fields":[{"id":1,"value":"X"}]}' --
 # Tasks
 if-team task create --project 12 --name "Wire up auth" --priority 2 \
   --status 3 --time-plan 7200 --participant 5
-if-team task update 4567 --status 6 --finish-at 2026-06-15 --yes
+# Task start_at / finish_at use ISO 8601 datetime (not plain YYYY-MM-DD).
+if-team task update 4567 --status 6 \
+  --start-at 2026-06-01T09:00:00.000Z \
+  --finish-at 2026-06-15T18:00:00.000Z --yes
 # (The API requires start_at on task updates — include --start-at if you hit a 422.)
 
 # Iterations
@@ -191,5 +194,6 @@ curl -s https://api.demo.if.team/api-json -o docs/api-spec.json
 
 ## Contributing
 
-See [AGENTS.md](./AGENTS.md) for development guidelines and [CODEBASE.md](./CODEBASE.md)
-for the repository map.
+See [AGENTS.md](./AGENTS.md) for the rules, [CODEBASE.md](./CODEBASE.md) for the
+repository map, [docs/patterns.md](./docs/patterns.md) for command patterns, and
+[docs/auth.md](./docs/auth.md) for the auth model.

@@ -1,257 +1,51 @@
-# if-team CLI
+# if-team CLI — Agent Rules
 
-> For repo structure, where things live, and shared utilities, read
-> [CODEBASE.md](./CODEBASE.md) first. This file covers the **rules**;
-> CODEBASE.md is the **map**.
+> Companion docs: [CODEBASE.md](./CODEBASE.md) (repo map), [docs/auth.md](./docs/auth.md) (auth model), [docs/patterns.md](./docs/patterns.md) (command patterns). Read those before changing code in their area.
 >
-> The repository structure follows [Doist/todoist-cli](https://github.com/Doist/todoist-cli) conventions.
-> When in doubt about a pattern, check that repo first.
+> Mirrors [Doist/todoist-cli](https://github.com/Doist/todoist-cli) — check that repo when a pattern isn't covered here.
 
-## What is if.team?
+## Project
 
-[if.team](https://if.team) is an all-in-one ERP platform for creative and tech companies — agencies, software studios, consulting firms. It consolidates:
-
-- **Project management** — Gantt, Kanban, custom stages, iterations
-- **Task management** — tasks, subtasks, checklists, priorities, custom fields
-- **Time tracking & workload** — workload calendars, reports
-- **Finance** — transactions, cash flow, P&L, salaries, quotes, invoices
-- **CRM** — clients, leads, pipelines, custom fields
-- **Team & HR** — participants, departments, positions, roles, recruitment, vacations
-- **Knowledge base** — documents and directories
-- **Chats** — project and direct messaging
-- **Files** — upload, storage, sharing
-- **Integrations** — ClickUp, HubSpot, Monday.com, bank feeds, webhooks
-
-The REST API is documented as an OpenAPI 3.0 spec stored at `docs/api-spec.json` (fetched from `https://api.demo.if.team/api-json`). A GitHub Action checks for spec changes daily and opens a PR when it detects a diff.
-
-## What is if-team-cli?
-
-`if-team-cli` is a TypeScript CLI for the if.team API. Binary name: `if-team`.
+`@jdi/if-team-cli` is a TypeScript CLI for [if.team](https://if.team) — an all-in-one ERP. Binary: `if-team`.
 
 ESM-only · Node ≥ 20.18.1 · Commander 14 · vitest · TypeScript 5.
 
-It is structured identically to [Doist/todoist-cli](https://github.com/Doist/todoist-cli). Refer to that repo for any pattern not yet documented here.
-
-## Build & Run
+## Build & run
 
 ```bash
-npm install             # install dependencies
-npm run build           # compile TypeScript → dist/ (uses tsconfig.build.json)
-npm run dev             # watch mode
-npm run type-check      # type-check without emitting
-npm test                # run vitest tests
-npm run test:watch      # watch mode for tests
+npm install              # install deps
+npm run build            # tsc -p tsconfig.build.json → dist/
+npm run dev              # watch mode
+npm run type-check       # type-check, no emit
+npm test                 # vitest
+node dist/index.js …     # run the CLI (no linking needed)
 ```
 
-**Two-tsconfig setup:** `tsconfig.json` includes source + tests (IDE and `type-check`). `tsconfig.build.json` extends it but excludes `*.test.ts` files (used by `build` and `dev`).
+**Two-tsconfig setup:** `tsconfig.json` includes source + tests (IDE / type-check); `tsconfig.build.json` excludes `*.test.ts` (build / dev).
 
-**Run the CLI directly** (no linking needed):
+## Rules
 
-```bash
-node dist/index.js --help
-node dist/index.js auth status
-```
-
-## Adding a New Command Group
-
-1. Create `src/commands/{name}/index.ts` exporting `registerXxxCommand(program: Command): void`.
-2. Subcommand logic lives in sibling files: `{name}/list.ts`, `{name}/add.ts`, etc.
-3. Register the loader in `src/index.ts`:
-   ```typescript
-   {name}: [
-       'Short description',
-       async () => (await import('./commands/{name}/index.js')).registerXxxCommand,
-   ],
-   ```
-4. The placeholder in the registry auto-registers for `--help` — no extra step needed.
-
-## Command Conventions (follow todoist-cli exactly)
-
-- **Group commands** (`task/`, `project/`, etc.): `index.ts` creates a parent command, each subcommand's logic in a sibling file.
-- **Implicit `view` subcommand**: register `.command('view [id]', { isDefault: true })` so `if-team project <id>` dispatches to `if-team project view <id>`. Use `<id>` (not `<ref>`) as the positional placeholder — it reads as "an integer ID" to users.
-- **Named flag aliases**: where commands accept positional args (project, task), also accept `--project`, `--task` flags. Error if both positional and flag are provided.
-- **`--json` on all mutating commands**: output the resulting entity as JSON when `--json` is passed. Use `printJson()` from `src/lib/output.ts`.
-- **`--ndjson`**: output one JSON object per line (for piping / streaming). On `show`/`view` commands, `--ndjson` collapses the entity into one compact line — useful for piping a single record to `jq` or feeding context to an LLM.
-- **`--dry-run`**: preview what would happen without executing.
-- **`--yes`**: skip confirmation prompts on destructive operations.
-- **`--quiet` / `-q`**: suppress success messages; create commands still print the created entity's ID.
-
-## List & show commands (read-only pattern)
-
-Canonical examples: `src/commands/task/list.ts`, `src/commands/task/show.ts`. Follow these rules for any new read-only command.
-
-- **Extract `buildQuery(options)`** from `listCommand` and export it, so query construction is unit-testable without mocking `apiRequest`.
-- **Extract `parseId(input)`** from `showCommand` and export it; throw `CliError('MISSING_ID', …)` or `CliError('INVALID_REF', …)` for bad input.
-- **Bracket-notation filters**: NestJS DTOs use form-array notation. Pass keys like `'filter[status_id][]': '5'` directly to `apiRequest`'s `query` option — `URLSearchParams.set()` URL-encodes them correctly. **Direct query params** (e.g. `project_id`) take precedence over `filter[project_id][]` when both exist; prefer the direct one.
-- **Dates**: validate `YYYY-MM-DD` with `/^\d{4}-\d{2}-\d{2}$/` and throw `CliError('INVALID_OPTIONS', …)`. Don't accept other formats — the API wants ISO dates only.
-- **Envelope unwrapping**: some `GET /{resource}/{id}` endpoints return wrapped envelopes (e.g. `GET /tasks/{id}` returns `{ task, dependencyTasks, checklists, … }`). Unwrap before formatting key-value output, but for `--json`/`--ndjson` pass the **raw envelope** through — callers may need the extras.
-- **404 mapping**: wrap `apiRequest` in try/catch and re-throw `CliError('NOT_FOUND', …)` when the message matches `/not\s*found|404/i`.
-- **Human output**: list → `printTable(rows, columns)` then a footer `Showing X of Y (page N, limit L)`; show → `printKeyValue([['Key', value], …])`. Both helpers live in `src/lib/output.ts`.
-- **i18n-shaped fields**: some list-item fields wrap their value in an object (e.g. `name: { name: "..." }`, `finish_at: { date, show_time, color }`). Check `docs/api-spec.json` for the actual schema before assuming a field is a primitive — the spec is authoritative.
-
-## Create, update & delete commands (mutation pattern)
-
-Canonical examples: `src/commands/iteration/create.ts`, `src/commands/iteration/update.ts`, `src/commands/iteration/delete.ts`.
-
-- **Named flags + `--data` blend**: expose common DTO fields as `.option('--name', …)`,
-  `.option('--status <id>', …)` etc.; expose the rest of the DTO via a single
-  `--data <json>` flag (literal JSON string, `@path/to/file.json`, or `-` for
-  stdin). Named flags override fields with the same key from `--data` — this lets
-  callers fix typos without re-emitting the whole body.
-- **Body construction is testable**: export `buildCreateBody(options)` /
-  `buildUpdateBody(options)` from each command file. They take only the parsed
-  flag object and return the merged body — no `apiRequest` involvement, no I/O.
-- **Use shared helpers in `src/lib/mutate.ts`**: `parseDataInput(input)` handles
-  the JSON / `@file` / `-` triad and throws `INVALID_OPTIONS` on parse errors.
-  `mergeBody(data, flags)` overlays flag values onto `--data`, skipping
-  `undefined`s (Commander leaves unset options undefined). `asNumber(value, flag)`
-  coerces numeric strings and throws `INVALID_OPTIONS` for non-numeric input.
-  `collectStrings` / `collectNumbers(flag)` are Commander collectors for
-  repeatable flags — pass them as the third arg to `.option(...)` **without** a
-  default value, so unset flags stay `undefined` instead of `[]`.
-- **Light validation**: don't codify each DTO's `required` list. Send what the
-  user provided and let the API return 422 with field errors. The CLI surfaces
-  the error via `CliError('API_ERROR', …)` from `apiRequest`.
-- **`update` requires confirmation**: call `confirmMutation(title, body, options)`
-  before the PATCH. It prints a `key: value` summary and prompts `Continue? [y/N]`.
-  `--yes` skips the prompt; non-TTY contexts (JSON mode, piped stdin) without
-  `--yes` throw `CONFIRMATION_REQUIRED`.
-- **`delete` requires confirmation**: call `confirmDeletion(summary, options)`
-  before the DELETE. Same `--yes` / non-TTY / JSON-mode contract as
-  `confirmMutation`, but prints only the bold summary line — no body block,
-  since delete has no DTO. Negative answer throws `ABORTED`.
-- **Delete has no body and no `buildDeleteBody`**: there's no DTO worth
-  unit-testing; existing `parseId` coverage from `show.ts` is enough. The 404
-  mapping is identical to update.
-- **Task delete: mandatory `stop` query**: `DELETE /tasks/{id}` requires `stop`
-  (boolean) per the spec. Expose as `.option('--stop', '…', true)` so Commander
-  synthesises `--no-stop`; serialise to the query as `'true'` / `'false'`
-  because `apiRequest`'s `query` is typed `Record<string, string | number>`.
-- **Project & iteration delete: optional `--transaction-deletion-method`**:
-  pass through to the query only when set (no default). The API decides
-  behaviour when omitted; example value is `COMPLETE_REMOVAL`.
-- **Reject empty updates**: throw `CliError('NO_CHANGES', …)` when the merged
-  body is `{}` — saves a pointless API round-trip.
-- **Required path/query params as positional or `requiredOption`**: e.g.
-  `iteration update <id>` (positional), `task create --project <id>`
-  (`.requiredOption(...)`). Commander enforces these at parse time.
-- **POST endpoints that take extra query params**: pass them via
-  `apiRequest('/tasks', { method: 'POST', query: { project_id }, body: … })`.
-  `apiRequest` still auto-injects `company_id`.
-- **404 mapping**: same as for show commands — catch `CliError` from
-  `apiRequest`, match `/not\s*found|404/i`, re-throw `CliError('NOT_FOUND', …)`.
-
-## Errors
-
-Throw `CliError(code, message, hints?)` from `src/lib/errors.ts` for anything user-facing:
-
-```typescript
-throw new CliError('NOT_FOUND', `Task "${ref}" not found.`, [
-    'Use `if-team task list` to see available tasks.',
-])
-```
-
-The global `parseAsync().catch` in `src/index.ts` routes `CliError` to the correct formatter (pretty or JSON). Never call `process.exit()` directly in command handlers.
-
-## if.team Auth Model
-
-if.team has a **two-tier auth system**. Understanding this is critical when adding new commands.
-
-### Tier 1 — API Key (`apikey` header)
-
-Created in the if.team admin dashboard per company. Sent as `apikey: <token>` header.
-
-**Works on:** all business/resource endpoints (projects, tasks, finance, CRM, etc.)  
-**Does NOT work on:** `/auth/*` endpoints, `/companies` — these require Bearer JWT  
-**Requires:** `company_id` query parameter on virtually every request  
-**Validation probe:** `GET /subscriptions/current?company_id=<id>` — safe verification without Bearer auth
-
-### Tier 2 — Bearer JWT (`Authorization: Bearer` header)
-
-Obtained via `POST /auth/login` with email + password. Short-lived; auto-refreshed using the refresh token via `POST /auth/refresh` (sends refresh token as Bearer header, no request body).
-
-**Works on:** all endpoints including `/auth/*` and `/companies`  
-**Requires:** `company_id` query parameter on business endpoints  
-**Auto-refresh:** `apiRequest()` checks expiry 30 s early and refreshes silently
-
-### `auth login` flow
-
-**Email/password mode** (`if-team auth login`):
-1. Prompt email (visible) and password (silent — no echo, enterprise standard)
-2. `POST /auth/login` → access token + refresh token
-3. If `companies` absent from response, call `GET /companies` with the JWT
-4. User selects company from numbered list (auto-selects if only one)
-5. Store JWT + company metadata in OS keychain
-
-**API key mode** (`if-team auth login --key`):
-
-The `--key` flag accepts an optional value. Three behaviours:
-
-| Invocation | Behaviour |
-|---|---|
-| `--key` (no value) | Prompts silently for the key — **recommended**, nothing in shell history |
-| `--key <value>` | Uses the inline value; prints a history warning |
-| `IF_TEAM_TOKEN` env var set, no `--key` | Uses env var as the API key (session-only, never stored) |
-
-Steps (all three paths share the same flow once the key is resolved):
-1. Resolve API key (silent prompt, inline value, or env var — see table above)
-2. Note displayed: email/password needed once to discover companies, will not be stored
-3. Prompt email and password (same silent prompt)
-4. `POST /auth/login` → temporary JWT (used only for company discovery)
-5. `GET /companies` with temporary JWT → company list
-6. User selects company
-7. Validate API key: `GET /subscriptions/current?company_id=<id>` with `apikey` header
-8. **Discard JWT** — store only API key + company metadata in OS keychain
-
-### Auth precedence in `apiRequest()`
-
-1. `IF_TEAM_TOKEN` env var → API key mode, session-only, never stored to disk
-2. Stored credentials from keychain → API key or JWT (whichever was used at login)
-3. No credentials → throws `CliError('NO_TOKEN', …)`
-
-### `company_id` resolution when `IF_TEAM_TOKEN` is set
-
-`IF_TEAM_TOKEN` alone is not enough — every business endpoint also requires `company_id`. Resolution order:
-
-1. `IF_TEAM_COMPANY_ID` env var — explicit, fully env-based (no keychain needed)
-2. `companyId` from stored keychain credentials — convenient fallback when a prior `auth login` exists
-3. Neither → throws `CliError('NO_COMPANY', …)` with a hint to set `IF_TEAM_COMPANY_ID`
-
-Example (fully env-based, no stored credentials required):
-```bash
-IF_TEAM_TOKEN=<key> IF_TEAM_COMPANY_ID=123 if-team task list
-```
-
-### `company_id` injection
-
-`apiRequest()` automatically appends `?company_id=<stored>` to every request unless the caller already provides it in the `query` option. Never omit `company_id` in manual `fetch()` calls outside `apiRequest()`.
-
-### Credential storage
-
-Credentials are stored as a JSON blob in the **OS keychain** via `@napi-rs/keyring`:
-- macOS: Keychain Access (service: `if-team-cli`, account: `credentials`)
-- Windows: Credential Manager
-- Linux: libsecret / Secret Service
-
-If the keychain is unavailable, falls back to `~/.config/if-team-cli/credentials.json` with `chmod 600` and a warning. The config file (`config.json` in the same dir) holds only `baseUrl` — never a secret.
-
-**API key credentials stored:** `{ mode, key, companyId, companyName }`  
-**JWT credentials stored:** `{ mode, accessToken, refreshToken, email, name, companyId, companyName }`  
-**Never stored:** email, password (discarded after login), temporary JWT in API key flow
-
-## API Client
-
-- **Base URL:** `https://api.demo.if.team` (default). Override with `IF_TEAM_API_URL` env var.
-- The API spec (`docs/api-spec.json`) is the authoritative reference for request/response shapes.
-- Use `apiRequest()` from `src/lib/api/client.ts` for all authenticated calls — it handles headers, `company_id`, and JWT refresh automatically.
+- **Filenames:** kebab-case. No barrel files except per-group `index.ts`.
+- **Commands:** see [docs/patterns.md](./docs/patterns.md) for list/show + create/update/delete patterns, the `--data` blend, confirmation prompts, and the Commander negation gotcha.
+- **Auth:** see [docs/auth.md](./docs/auth.md). Two-tier system (API key vs Bearer JWT). `apiRequest()` auto-injects `company_id` and refreshes expired JWTs.
+- **Errors:** throw `CliError(code, message, hints?)` from `src/lib/errors.ts`. Never call `process.exit()` in handlers — the global `parseAsync().catch` in `src/index.ts` routes to the right formatter (pretty / JSON).
+  ```typescript
+  throw new CliError('NOT_FOUND', `Task "${ref}" not found.`, [
+      'Use `if-team task list` to see available tasks.',
+  ])
+  ```
+- **HTTP errors:** `apiRequest()` flattens 422 `errors` maps into `CliError` hints and throws `CliError('NOT_FOUND', …)` on HTTP 404. Catch by `err.code === 'NOT_FOUND'` — don't regex the message (locale-fragile).
+- **Output:** always call `isJsonMode()` / `isNdjsonMode()` / `isQuietMode()` from `src/lib/global-args.ts` before printing human-readable text. `printSuccess()` is silent under `--quiet`; create commands fall back to bare `console.log(res.id)` so the ID stays pipeable.
+- **API base URL:** `https://api.demo.if.team` (default). Override with `IF_TEAM_API_URL`. Spec: `docs/api-spec.json`.
+- **Logs:** `apiRequest` writes request/response lines at verbosity ≥ 2 (`-vv`); body at ≥ 3 (`-vvv`). Use this for manual QA verification — don't add ad-hoc `console.log`.
 
 ## Testing
 
-Tests use vitest. Co-locate test files next to the module they cover (`foo.ts` → `foo.test.ts`). Run `npm test` before committing.
+vitest. Co-locate `*.test.ts` next to the module it covers. Run `npm test` before committing.
 
-## API Spec Updates
+## API spec updates
 
-The OpenAPI spec is stored at `docs/api-spec.json`. A daily GitHub Action (`check-api-spec.yml`) downloads the live spec, diffs it against the stored version, and opens a PR automatically if it changed. To update manually:
+`docs/api-spec.json` (OpenAPI 3.0) is the authoritative reference for request/response shapes. A daily GitHub Action (`check-api-spec.yml`) diffs the live spec against the stored version and opens a PR on `chore/update-api-spec` if it changed. Manual refresh:
 
 ```bash
 curl -s https://api.demo.if.team/api-json -o docs/api-spec.json
