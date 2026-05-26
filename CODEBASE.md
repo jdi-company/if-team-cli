@@ -6,10 +6,10 @@
 
 ## What this project is
 
-`@jdi/if-team-cli` is a **TypeScript CLI** for [if.team](https://if.team) — an
+`if-team-cli` is a **TypeScript CLI** for [if.team](https://if.team) — an
 all-in-one ERP for creative and tech companies. Binary name: `if-team`.
 
-ESM-only · Node ≥ 20.18.1 · Commander 14 · vitest · TypeScript 5.
+ESM-only · Node ≥ 24 · Commander 14 · vitest · TypeScript 6.
 
 Repository structure mirrors [Doist/todoist-cli](https://github.com/Doist/todoist-cli).
 When a pattern is not yet documented here, check that repo.

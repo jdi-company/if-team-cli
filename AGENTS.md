@@ -1,4 +1,4 @@
-# if-team CLI — Agent Rules
+# if.team CLI — Agent Rules
 
 > Companion docs: [CODEBASE.md](./CODEBASE.md) (repo map), [docs/auth.md](./docs/auth.md) (auth model), [docs/patterns.md](./docs/patterns.md) (command patterns). Read those before changing code in their area.
 >
@@ -6,9 +6,9 @@
 
 ## Project
 
-`@jdi/if-team-cli` is a TypeScript CLI for [if.team](https://if.team) — an all-in-one ERP. Binary: `if-team`.
+`if-team-cli` is a TypeScript CLI for [if.team](https://if.team) — an all-in-one ERP. Binary: `if-team`.
 
-ESM-only · Node ≥ 20.18.1 · Commander 14 · vitest · TypeScript 5.
+ESM-only · Node ≥ 24 · Commander 14 · vitest · TypeScript 6.
 
 ## Build & run
 

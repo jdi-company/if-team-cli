@@ -1,11 +1,22 @@
-# if-team CLI
+<p align="center">
+  <img src="./icons/if-team-cli.png" alt="if-team CLI" width="160" />
+</p>
+
+# if.team | CLI
+
+[![npm version](https://img.shields.io/npm/v/if-team-cli.svg)](https://www.npmjs.com/package/if-team-cli)
+[![Tests](https://github.com/jdi-company/if-team-cli/actions/workflows/test.yml/badge.svg)](https://github.com/jdi-company/if-team-cli/actions/workflows/test.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+[![Node](https://img.shields.io/node/v/if-team-cli.svg)](https://www.npmjs.com/package/if-team-cli)
 
 A command-line interface for [if.team](https://if.team) — an all-in-one ERP for creative and tech companies.
+
+> ⚠️ **Unofficial package.** This CLI is not published or maintained by the **if.team**. It is built and maintained independently by **JAST DEVELOP InT OÜ**, but we are in active contact with the **if.team** and aim to keep the CLI aligned with the official API.
 
 ## Installation
 
 ```bash
-npm install -g @jdi/if-team-cli
+npm install -g if-team-cli
 ```
 
 ## Authentication
@@ -194,6 +205,14 @@ curl -s https://api.demo.if.team/api-json -o docs/api-spec.json
 
 ## Contributing
 
-See [AGENTS.md](./AGENTS.md) for the rules, [CODEBASE.md](./CODEBASE.md) for the
-repository map, [docs/patterns.md](./docs/patterns.md) for command patterns, and
-[docs/auth.md](./docs/auth.md) for the auth model.
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for the PR workflow and conventional-commit
+rules. For deeper context: [AGENTS.md](./AGENTS.md) (rules sheet),
+[CODEBASE.md](./CODEBASE.md) (repo map), [docs/patterns.md](./docs/patterns.md)
+(command patterns), [docs/auth.md](./docs/auth.md) (auth model).
+
+## Credits
+
+This project was inspired by the [Doist/todoist-cli](https://github.com/Doist/todoist-cli)
+repository — its command patterns, flag conventions, skill plumbing, and
+release workflow shaped how this CLI is structured. Huge thanks to the Doist
+team for publishing it as open source.

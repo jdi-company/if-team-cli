@@ -46,6 +46,10 @@ const commands: Record<string, [string, () => Promise<(p: Command) => void>]> = 
         'Browse project iterations',
         async () => (await import('./commands/iteration/index.js')).registerIterationCommand,
     ],
+    skill: [
+        'Install the if-team agent skill into Claude Code, Cursor, Codex, etc.',
+        async () => (await import('./commands/skill/index.js')).registerSkillCommand,
+    ],
 }
 
 // Register placeholders so --help lists all commands
