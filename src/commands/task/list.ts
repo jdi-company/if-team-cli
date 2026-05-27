@@ -63,8 +63,14 @@ export function buildQuery(options: ListOptions): Record<string, string | number
     const query: Record<string, string | number> = {}
     if (options.project) query.project_id = options.project
     if (options.status) query['filter[status_id][]'] = options.status
-    if (options.startAt) query['filter[start_at][]'] = options.startAt
-    if (options.finishAt) query['filter[finish_at][]'] = options.finishAt
+    if (options.startAt) {
+        query['filter[start_at][0]'] = options.startAt
+        query['filter[start_at][1]'] = options.startAt
+    }
+    if (options.finishAt) {
+        query['filter[finish_at][0]'] = options.finishAt
+        query['filter[finish_at][1]'] = options.finishAt
+    }
     if (options.page) query.page = options.page
     if (options.limit) query.limit = options.limit
     return query

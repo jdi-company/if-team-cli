@@ -17,10 +17,12 @@ describe('task list — buildQuery', () => {
         expect(buildQuery({ status: '3' })).toEqual({ 'filter[status_id][]': '3' })
     })
 
-    it('maps --start-at and --finish-at to bracket filter keys', () => {
+    it('maps --start-at and --finish-at to indexed [0]/[1] tuple filter keys', () => {
         expect(buildQuery({ startAt: '2026-05-01', finishAt: '2026-05-31' })).toEqual({
-            'filter[start_at][]': '2026-05-01',
-            'filter[finish_at][]': '2026-05-31',
+            'filter[start_at][0]': '2026-05-01',
+            'filter[start_at][1]': '2026-05-01',
+            'filter[finish_at][0]': '2026-05-31',
+            'filter[finish_at][1]': '2026-05-31',
         })
     })
 
@@ -41,8 +43,10 @@ describe('task list — buildQuery', () => {
         ).toEqual({
             project_id: '12',
             'filter[status_id][]': '3',
-            'filter[start_at][]': '2026-05-01',
-            'filter[finish_at][]': '2026-05-31',
+            'filter[start_at][0]': '2026-05-01',
+            'filter[start_at][1]': '2026-05-01',
+            'filter[finish_at][0]': '2026-05-31',
+            'filter[finish_at][1]': '2026-05-31',
             page: '2',
             limit: '50',
         })
