@@ -19,6 +19,7 @@ export type StoredCredentials =
           mode: 'jwt'
           accessToken: string
           refreshToken: string
+          userId?: number
           email: string
           name: string
           companyId: number

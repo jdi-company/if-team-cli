@@ -26,6 +26,7 @@ Examples:
         .option('--project <id>', 'Filter by project ID')
         .option('--start-at <date>', 'Filter by start date (YYYY-MM-DD)')
         .option('--finish-at <date>', 'Filter by finish date (YYYY-MM-DD)')
+        .option('--assignee <id|me>', 'Filter by responsible user ID (or "me")')
         .option('--page <n>', 'Page number (1-based)')
         .option('--limit <n>', 'Page size')
         .option('--json', 'Output the raw API response as JSON')

@@ -63,117 +63,39 @@ if-team auth status   # show authentication status, mode, and company
 if-team auth logout   # invalidate session and remove stored credentials
 ```
 
-## Usage
+## Quick start
 
 ```bash
 if-team --help              # list all commands
 if-team <command> --help    # help for a specific command
+
+# Read-only essentials
+if-team task list --assignee me --finish-at 2026-05-26   # MY tasks due on a date
+if-team task list --project 12 --status 3                # filter by project + status
+if-team project list                                     # first 20 projects
+if-team project show 1234                                # full details
+
+# Create a task
+if-team task create --project 12 --name "Wire up auth" --priority 2
 ```
 
-### Global flags
+> Add `--json` to any command for machine-readable output, `--ndjson` for one line per item (great for piping into `jq` or an LLM).
 
-| Flag | Description |
-|---|---|
-| `--json` | Output as pretty JSON (machine-readable) |
-| `--ndjson` | Output as a single line of JSON (or one line per item for lists) |
-| `-q, --quiet` | Suppress success messages |
-| `-v` | Verbose output (repeat up to `-vvvv`) |
-| `--no-spinner` | Disable loading animations |
+For the **full command catalogue** (every resource, every flag, every example), see [COMMANDS.md](./COMMANDS.md).
 
-### Browsing projects and tasks
+## Use it from your AI assistant
 
-Read-only commands for everyday workflows. All accept `--json` (pretty) and
-`--ndjson` (compact / one line per item).
+The CLI ships with a skill file that teaches Claude Code, Cursor, Codex, Copilot, Gemini, and any universal-skill-compatible agent how to call these commands on your behalf. After installing it, asking your agent *"what are my tasks for today?"* runs one targeted command instead of dumping the whole task list.
 
 ```bash
-# Projects
-if-team project list                                # first page (default 20 items)
-if-team project list --status 3 --limit 50          # filter + page size
-if-team project list --page 2
-if-team project statuses                            # available status IDs
-if-team project show 1234                           # full details
-if-team project 1234                                # same as `show` (implicit view)
-
-# Tasks
-if-team task list                                   # first page
-if-team task list --project 12 --status 3
-if-team task list --finish-at 2026-05-26            # tasks due on a date (YYYY-MM-DD)
-if-team task list --start-at 2026-05-26 --finish-at 2026-05-31
-if-team task statuses                               # status IDs (for --status)
-if-team task priorities                             # priority IDs
-if-team task show 4567                              # full details
-if-team task 4567 --ndjson                          # compact JSON for piping
-
-# Iterations
-if-team iteration list 12                           # iterations for project 12 (required)
-if-team iteration list 12 --status 1 --limit 50
-if-team iteration statuses                          # available iteration status IDs
-if-team iteration show 345                          # full details for one iteration
-if-team iteration 345                               # same as `show` (implicit view)
+if-team skill list                            # supported agents + install state
+if-team skill install claude-code             # install for Claude Code (~/.claude/skills/)
+if-team skill install cursor --local          # install into the current project (./.cursor/skills/)
+if-team skill update claude-code              # refresh after upgrading the CLI
+if-team skill uninstall cursor                # remove
 ```
 
-Use `--ndjson` on `show` to get one compact JSON line — handy when streaming
-context to an LLM or piping through `jq`.
-
-### Creating, updating, and deleting
-
-Every resource supports `create` (POST), `update <id>` (PATCH), and
-`delete <id>` (DELETE). `create` and `update` accept common fields as
-**named flags** and the full DTO as `--data` (JSON literal, `@file.json`, or
-`-` for stdin). Named flags override fields from `--data`.
-
-`update` and `delete` prompt for confirmation by default — pass `--yes` to
-skip (required in non-interactive contexts: `--json` mode, piped stdin, CI).
-
-```bash
-# Projects
-if-team project create --name "New site" --status 5 --responsible 10 \
-  --type fixed --amount 5000 --currency 2 --client 7
-if-team project update 1234 --status 3 --finish-at 2026-06-30 --yes
-if-team project update 1234 --data '{"custom_fields":[{"id":1,"value":"X"}]}' --yes
-
-# Tasks
-if-team task create --project 12 --name "Wire up auth" --priority 2 \
-  --status 3 --time-plan 7200 --participant 5
-# Task start_at / finish_at use ISO 8601 datetime (not plain YYYY-MM-DD).
-if-team task update 4567 --status 6 \
-  --start-at 2026-06-01T09:00:00.000Z \
-  --finish-at 2026-06-15T18:00:00.000Z --yes
-# (The API requires start_at on task updates — include --start-at if you hit a 422.)
-
-# Iterations
-if-team iteration create --project 12 --name "2026/Q3/S1" \
-  --start-at 2026-07-01 --finish-at 2026-07-14 --hours 80 --to-project-amount
-if-team iteration update 345 --status 2300 --yes
-```
-
-Pipe JSON in from another command or a file:
-
-```bash
-echo '{"name":"My task","client_ids":["7"]}' | if-team task create --project 12 --data -
-if-team task update 4567 --data @patch.json --yes
-```
-
-Delete a resource:
-
-```bash
-# Projects
-if-team project delete 1234 --yes
-if-team project delete 1234 --transaction-deletion-method COMPLETE_REMOVAL --yes
-
-# Tasks
-if-team task delete 4567 --yes
-if-team task delete 4567 --no-stop --yes   # leave active time tracking running
-
-# Iterations
-if-team iteration delete 345 --yes
-```
-
-`delete` prints `About to delete <resource> <id>.` and asks `Continue? [y/N]`
-unless `--yes` is passed. In `--json` / `--ndjson` mode the prompt is skipped
-and you must pass `--yes` explicitly. Task delete sends the API-required
-`stop` query as `true` by default; pass `--no-stop` to keep an active timer
-running.
+Supported agents: `claude-code`, `codex`, `copilot`, `cursor`, `gemini`, `universal`.
 
 ## Local Development
 
@@ -206,9 +128,10 @@ curl -s https://api.demo.if.team/api-json -o docs/api-spec.json
 ## Contributing
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for the PR workflow and conventional-commit
-rules. For deeper context: [AGENTS.md](./AGENTS.md) (rules sheet),
-[CODEBASE.md](./CODEBASE.md) (repo map), [docs/patterns.md](./docs/patterns.md)
-(command patterns), [docs/auth.md](./docs/auth.md) (auth model).
+rules. For deeper context: [COMMANDS.md](./COMMANDS.md) (full command reference),
+[AGENTS.md](./AGENTS.md) (rules sheet), [CODEBASE.md](./CODEBASE.md) (repo map),
+[docs/patterns.md](./docs/patterns.md) (command patterns),
+[docs/auth.md](./docs/auth.md) (auth model).
 
 ## Credits
 

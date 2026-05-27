@@ -39,6 +39,7 @@ export interface ListOptions {
     project?: string
     startAt?: string
     finishAt?: string
+    assignee?: string
     page?: string
     limit?: string
     json?: boolean
@@ -61,16 +62,27 @@ export function buildQuery(options: ListOptions): Record<string, string | number
     validateDate('--finish-at', options.finishAt)
 
     const query: Record<string, string | number> = {}
-    if (options.project) query.project_id = options.project
+    if (options.project) query['filter[project_id][]'] = options.project
     if (options.status) query['filter[status_id][]'] = options.status
-    if (options.startAt) query['filter[start_at][]'] = options.startAt
-    if (options.finishAt) query['filter[finish_at][]'] = options.finishAt
+    if (options.startAt) {
+        query['filter[start_at][0]'] = options.startAt
+        query['filter[start_at][1]'] = options.startAt
+    }
+    if (options.finishAt) {
+        query['filter[finish_at][0]'] = options.finishAt
+        query['filter[finish_at][1]'] = options.finishAt
+    }
+    if (options.assignee) query['filter[responsible_id][]'] = options.assignee
     if (options.page) query.page = options.page
     if (options.limit) query.limit = options.limit
     return query
 }
 
 export async function listCommand(options: ListOptions): Promise<void> {
+    if (options.assignee === 'me') {
+        const { getCurrentUserId } = await import('../../lib/user.js')
+        options = { ...options, assignee: String(getCurrentUserId()) }
+    }
     const query = buildQuery(options)
 
     startSpinner('Loading tasks…')
