@@ -43,6 +43,15 @@ node dist/index.js …     # run the CLI (no linking needed)
 
 vitest. Co-locate `*.test.ts` next to the module it covers. Run `npm test` before committing.
 
+**Live-API smoke tests** (`*.int.test.ts`) hit the real API and are gated with `describe.skipIf` on these env vars — unset by default, so CI and local `npm test` skip them:
+
+```bash
+export IF_TEAM_INT_TOKEN=…          # Bearer JWT (not API key)
+export IF_TEAM_INT_COMPANY_ID=
+export IF_TEAM_INT_USER_ID=    # optional, enables --assignee checks
+npm test -- list.int.test
+```
+
 ## API spec updates
 
 `docs/api-spec.json` (OpenAPI 3.0) is the authoritative reference for request/response shapes. A daily GitHub Action (`check-api-spec.yml`) diffs the live spec against the stored version and opens a PR on `chore/update-api-spec` if it changed. Manual refresh:
