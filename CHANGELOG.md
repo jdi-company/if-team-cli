@@ -1,3 +1,15 @@
+## [1.1.0](https://github.com/jdi-company/if-team-cli/compare/v1.0.0...v1.1.0) (2026-05-27)
+
+### Features
+
+* **task,auth:** add --assignee <id|me> to task list ([16c74dd](https://github.com/jdi-company/if-team-cli/commit/16c74dd38eeceb1efb041fb87fff826eeed2a558))
+
+### Bug Fixes
+
+* **auth:** resolve company-scoped participant id for --assignee me ([457422f](https://github.com/jdi-company/if-team-cli/commit/457422f4498da01e62335d302cd588a2430dda4d))
+* **task:** correct finish_at/start_at filter shape for /tasks ([dc21a92](https://github.com/jdi-company/if-team-cli/commit/dc21a9282fc33ba9e17e472e80f8110603f484a1))
+* **task:** use filter[project_id][] for --project, not project_id ([5d35510](https://github.com/jdi-company/if-team-cli/commit/5d355102e7eca1bb5ce8c72ad225d53a5781f6f4))
+
 ## 1.0.0 (2026-05-26)
 
 ### Features
