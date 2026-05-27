@@ -26,6 +26,12 @@ describe('task list — buildQuery', () => {
         })
     })
 
+    it('maps --assignee to filter[responsible_id][]', () => {
+        expect(buildQuery({ assignee: '14237' })).toEqual({
+            'filter[responsible_id][]': '14237',
+        })
+    })
+
     it('forwards --page and --limit', () => {
         expect(buildQuery({ page: '2', limit: '50' })).toEqual({ page: '2', limit: '50' })
     })

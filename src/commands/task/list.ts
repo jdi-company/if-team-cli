@@ -39,6 +39,7 @@ export interface ListOptions {
     project?: string
     startAt?: string
     finishAt?: string
+    assignee?: string
     page?: string
     limit?: string
     json?: boolean
@@ -71,12 +72,17 @@ export function buildQuery(options: ListOptions): Record<string, string | number
         query['filter[finish_at][0]'] = options.finishAt
         query['filter[finish_at][1]'] = options.finishAt
     }
+    if (options.assignee) query['filter[responsible_id][]'] = options.assignee
     if (options.page) query.page = options.page
     if (options.limit) query.limit = options.limit
     return query
 }
 
 export async function listCommand(options: ListOptions): Promise<void> {
+    if (options.assignee === 'me') {
+        const { getCurrentUserId } = await import('../../lib/user.js')
+        options = { ...options, assignee: String(getCurrentUserId()) }
+    }
     const query = buildQuery(options)
 
     startSpinner('Loading tasks…')

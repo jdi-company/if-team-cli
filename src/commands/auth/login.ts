@@ -143,6 +143,7 @@ export async function loginCommand(options: LoginOptions): Promise<void> {
         mode: 'jwt',
         accessToken: response.access_token,
         refreshToken: response.refresh_token,
+        userId: response.user.id,
         email: response.user.email,
         name: response.user.name,
         companyId: company.id,
