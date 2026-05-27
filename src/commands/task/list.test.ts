@@ -7,10 +7,10 @@ describe('task list — buildQuery', () => {
         expect(buildQuery({})).toEqual({})
     })
 
-    it('maps --project to the direct project_id param, not a filter', () => {
-        const q = buildQuery({ project: '12' })
-        expect(q).toEqual({ project_id: '12' })
-        expect(q).not.toHaveProperty('filter[project_id][]')
+    it('maps --project to filter[project_id][]', () => {
+        expect(buildQuery({ project: '12' })).toEqual({
+            'filter[project_id][]': '12',
+        })
     })
 
     it('maps --status to filter[status_id][]', () => {
@@ -47,7 +47,7 @@ describe('task list — buildQuery', () => {
                 limit: '50',
             }),
         ).toEqual({
-            project_id: '12',
+            'filter[project_id][]': '12',
             'filter[status_id][]': '3',
             'filter[start_at][0]': '2026-05-01',
             'filter[start_at][1]': '2026-05-01',

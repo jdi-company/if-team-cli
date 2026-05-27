@@ -62,7 +62,7 @@ export function buildQuery(options: ListOptions): Record<string, string | number
     validateDate('--finish-at', options.finishAt)
 
     const query: Record<string, string | number> = {}
-    if (options.project) query.project_id = options.project
+    if (options.project) query['filter[project_id][]'] = options.project
     if (options.status) query['filter[status_id][]'] = options.status
     if (options.startAt) {
         query['filter[start_at][0]'] = options.startAt
