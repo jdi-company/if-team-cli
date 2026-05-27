@@ -1,5 +1,10 @@
 import chalk from 'chalk'
-import { getCompanies, loginRequest, validateApiKey } from '../../lib/api/client.js'
+import {
+    findParticipantIdByEmail,
+    getCompanies,
+    loginRequest,
+    validateApiKey,
+} from '../../lib/api/client.js'
 import { type StoreResult, storeCredentials } from '../../lib/auth-store.js'
 import { CliError } from '../../lib/errors.js'
 import { isJsonMode } from '../../lib/global-args.js'
@@ -139,11 +144,17 @@ export async function loginCommand(options: LoginOptions): Promise<void> {
         companyList.map((c) => ({ id: c.id, name: c.name })),
     )
 
+    const participantId = await findParticipantIdByEmail(
+        response.access_token,
+        company.id,
+        response.user.email,
+    )
+
     const result = storeCredentials({
         mode: 'jwt',
         accessToken: response.access_token,
         refreshToken: response.refresh_token,
-        userId: response.user.id,
+        userId: participantId ?? undefined,
         email: response.user.email,
         name: response.user.name,
         companyId: company.id,

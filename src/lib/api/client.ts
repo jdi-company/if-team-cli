@@ -213,6 +213,33 @@ export async function getCompanies(accessToken: string): Promise<ApiCompany[]> {
     return Array.isArray(data) ? data : data.data
 }
 
+// ─── Participant lookup ───────────────────────────────────────────────────────
+// /auth/profile returns the *global* user id (e.g. 9805) — but task filters like
+// filter[responsible_id][] expect the *company-scoped participant id* (14237 in
+// company 464). The mapping isn't exposed by /auth/profile, so we look it up
+// against /participants and match by email.
+
+interface Participant {
+    id: number
+    email?: string
+}
+
+export async function findParticipantIdByEmail(
+    accessToken: string,
+    companyId: number,
+    email: string,
+): Promise<number | null> {
+    const { baseUrl } = loadConfig()
+    const url = `${baseUrl}/participants?company_id=${companyId}&limit=100`
+    const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+    })
+    if (!res.ok) return null
+    const body = (await res.json()) as { data?: Participant[] }
+    const match = body.data?.find((p) => p.email?.toLowerCase() === email.toLowerCase())
+    return match?.id ?? null
+}
+
 // ─── Unauthenticated login request ────────────────────────────────────────────
 
 export async function loginRequest(email: string, password: string): Promise<LoginResponse> {
