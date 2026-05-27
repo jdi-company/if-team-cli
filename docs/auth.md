@@ -27,7 +27,8 @@ Obtained via `POST /auth/login` with email + password. Short-lived; auto-refresh
 2. `POST /auth/login` → access token + refresh token.
 3. If `companies` absent from response, call `GET /companies` with the JWT.
 4. User selects company from numbered list (auto-selects if only one).
-5. Store JWT + company metadata in OS keychain.
+5. Resolve the company-scoped **participant id** via `findParticipantIdByEmail()` (`GET /participants?company_id=<id>` + match by email). Needed because `response.user.id` is the *global* account id, but task filters like `filter[responsible_id][]` expect the per-company participant id. Stored as `userId` in credentials — used by `--assignee me`. Lookup failure leaves `userId` undefined; `--assignee me` then errors with `NO_USER_IDENTITY`.
+6. Store JWT + company metadata + participant id in OS keychain.
 
 ### API key mode (`if-team auth login --key`)
 
@@ -85,5 +86,5 @@ Credentials are stored as a JSON blob in the **OS keychain** via `@napi-rs/keyri
 If the keychain is unavailable, falls back to `~/.config/if-team-cli/credentials.json` with `chmod 600` and a warning. The config file (`config.json` in the same dir) holds only `baseUrl` — never a secret.
 
 - **API key credentials stored:** `{ mode, key, companyId, companyName }`
-- **JWT credentials stored:** `{ mode, accessToken, refreshToken, email, name, companyId, companyName }`
-- **Never stored:** email, password (discarded after login), temporary JWT in API key flow.
+- **JWT credentials stored:** `{ mode, accessToken, refreshToken, userId?, email, name, companyId, companyName }`. `userId` is the **company-scoped participant id** (e.g. `1001` in company `200`), not the global account id (e.g. `42`). Optional because credentials saved before this resolution shipped lack it — `--assignee me` then prompts a re-login.
+- **Never stored:** password (discarded after login), temporary JWT in API key flow, the global user id (we throw it away in favor of the participant id).

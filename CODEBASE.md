@@ -56,7 +56,8 @@ src/
 │  ├─ task/               # Task browsing + mutations
 │  │  ├─ index.ts         # list / statuses / priorities / show / create / update / delete
 │  │  ├─ list.ts          # buildQuery() + listCommand() — --status, --project,
-│  │  │                   # --start-at, --finish-at, --page, --limit
+│  │  │                   # --start-at, --finish-at, --assignee (id|me),
+│  │  │                   # --page, --limit
 │  │  ├─ show.ts          # parseId() + showCommand() — GET /tasks/{id}
 │  │  │                   # (unwraps TaskPageDocs envelope: response.task)
 │  │  ├─ statuses.ts      # GET /task_statuses
@@ -80,9 +81,15 @@ src/
 └─ lib/                   # Shared utilities — don't reimplement
    ├─ api/
    │  └─ client.ts        # apiRequest(), loginRequest(), getCompanies(),
-   │                      # validateApiKey(), logoutRequest()
+   │                      # findParticipantIdByEmail(), validateApiKey(),
+   │                      # logoutRequest()
    ├─ auth-store.ts       # Keychain read/write via @napi-rs/keyring,
    │                      # chmod-600 file fallback, StoredCredentials type
+   │                      # (JWT variant stores per-company participant id
+   │                      # as `userId` — used by --assignee me)
+   ├─ user.ts             # getCurrentUserId() — reads stored participant id;
+   │                      # throws NO_USER_IDENTITY in api-key mode or when
+   │                      # credentials predate the participant-resolution fix
    ├─ config.ts           # Non-sensitive config (~/.config/if-team-cli/config.json)
    │                      # baseUrl only — never stores secrets
    ├─ errors.ts           # CliError(code, message, hints?) + ErrorCode union
