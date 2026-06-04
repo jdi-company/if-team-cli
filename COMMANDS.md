@@ -119,6 +119,34 @@ if-team iteration delete 345 --yes
 `to_project_amount` defaults to `false`; passing `--to-project-amount` makes the API require an
 `amount`, which the CLI defaults to `0` (override with `--amount <n>`).
 
+## Clients
+
+### Browse
+
+```bash
+if-team client list --type legal                  # business clients (--type is REQUIRED)
+if-team client list --type individual --name adam # search individuals by name
+if-team client roles                              # available client role IDs
+if-team client show 1001                          # full details for one client
+if-team client 1001                               # shorthand for `show`
+```
+
+`client list` requires `--type individual|legal`; the API rejects an untyped listing. Other
+filters: `--name`, `--email`, `--phone`, `--comment`, `--country <id>`.
+
+### Mutate
+
+```bash
+if-team client create --name "Acme Inc" --type legal --email billing@acme.test --country 1
+if-team client update 1001 --phone "+123" --yes
+if-team client delete 1001 --yes
+```
+
+Create/update flags: `--name`, `--type`, `--email`, `--phone`, `--address`, `--comment`,
+`--country <id>`, `--iban`, `--bank`, `--registration-number`, `--telegram`, `--whatsapp`,
+`--date-of-birth`, repeatable `--responsible <id>` / `--role <id>`, and `--lead <id>`. Anything
+not covered goes through `--data`.
+
 ## Workload (time tracking)
 
 `workload` records logged time against tasks. Durations accept `2h` / `90m` / `2h30m` / `45s` or a
