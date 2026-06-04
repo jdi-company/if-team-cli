@@ -161,6 +161,12 @@ export async function apiRequest<T>(
         url.searchParams.set('company_id', String(creds.companyId))
     }
 
+    // A few endpoints (e.g. GET /clients/roles) ignore the query param and 403
+    // unless the company is also passed as the `x-company-id` header. Sending it
+    // on every request is harmless for the endpoints that only read the query.
+    const companyHeader: Record<string, string> =
+        creds && 'companyId' in creds ? { 'x-company-id': String(creds.companyId) } : {}
+
     const { query: _q, ...fetchOptions } = options
     log(2, `→ ${fetchOptions.method ?? 'GET'} ${url.toString()}`)
     if (fetchOptions.body !== undefined && fetchOptions.body !== null) {
@@ -170,6 +176,7 @@ export async function apiRequest<T>(
         ...fetchOptions,
         headers: {
             'Content-Type': 'application/json',
+            ...companyHeader,
             ...(fetchOptions.headers as Record<string, string>),
             ...authHeaders,
         },

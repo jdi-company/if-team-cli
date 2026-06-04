@@ -91,17 +91,30 @@ These are real cases from this codebase. Assume each new endpoint hides at least
    then dies with `rows.map is not a function` and `--ndjson` iterates the wrong thing. Unwrap
    `.data` and tolerate both shapes: `const items = Array.isArray(res) ? res : res.data ?? []`.
    See `workload/list.ts`.
-9. **`PATCH` may reject a *partial* body with a 500.** `PATCH /workload/{id}` marks every
-   field optional, but sending only the changed field returns `500 "DB Error"`; it succeeds
-   only when `time` + `start_at` + `participant_id` are all present. **Fetch the current entry
-   first and hydrate the unchanged required fields before the PATCH** — the read-modify-write
-   variant of the conditional-required trap (#1). See `workload/update.ts` → `hydrateUpdateBody`
-   (kept pure and unit-tested; the GET happens in the command action).
+9. **`PATCH` may reject a *partial* body with a 500 — or silently wipe the omitted fields.**
+   Two flavors of the same read-modify-write trap:
+   - `PATCH /workload/{id}` marks every field optional but returns `500 "DB Error"` unless
+     `time` + `start_at` + `participant_id` are all present.
+   - `PATCH /clients/{id}` accepts a partial body with `200` but treats it as a **full
+     replace**: a `{ phone }`-only update silently flipped `type` from `legal` to `individual`
+     (the client jumped lists). No error — you only notice on the next read.
+
+   Either way: **fetch the current entry first and hydrate the unchanged fields before the
+   PATCH.** See `workload/update.ts` and `client/update.ts` → `hydrateUpdateBody` (kept pure and
+   unit-tested; the GET happens in the command action). When in doubt about whether a PATCH is a
+   merge or a replace, assume replace and hydrate — verify with a partial update + re-read in
+   live QA (Step 7).
 10. **Bodyless POST action endpoints 400 on an absent body.** `POST /workload/start` and
    `/workload/finish` take no body fields, but `apiRequest` always sends
    `Content-Type: application/json`; with no body the server's JSON parser throws
    `400 "Unexpected end of JSON input"`. Pass `body: '{}'` on any action-style POST that has no
    DTO. (Create/update endpoints already send a body, and DELETEs are unaffected.)
+11. **A few endpoints want the company as an `x-company-id` *header*, not the query param.**
+   `apiRequest` injects `company_id` into the query string, which satisfies most of the API,
+   but `GET /clients/roles` `403`s with `Header "x-company-id" is required`. `apiRequest` now
+   sends the `x-company-id` header on every request too (harmless for query-only endpoints), so
+   new commands get this for free — but if a brand-new endpoint `403`s on company despite the
+   query param, this header is the first thing to check.
 
 ---
 

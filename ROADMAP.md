@@ -34,6 +34,7 @@ below, either in a phase or in the out-of-scope inventory.
 | `task` | list / show / create / update / delete / statuses / priorities | `--iteration`, `--assignee me` |
 | `iteration` | list / show / create / update / delete / statuses | `to_project_amount`/`amount` defaults |
 | `workload` | log / start / finish / comment / today / list / show / update / delete | time tracking; `2h`/`90m`/`2h30m`/raw-seconds durations |
+| `client` | list / show / create / update / delete / roles | `list` requires `--type individual\|legal`; update hydrates to avoid partial-PATCH resets |
 | `skill` | list / install / update / uninstall | agent skill installer |
 
 ---
@@ -60,10 +61,13 @@ text and SKILL.md.
 
 SKILL.md currently says time logging is unsupported — replace that note when this lands.
 
-### 1.2 `client` ⬜
+### 1.2 `client` ✅
 
 Already referenced by `project --client` / `task --client`. `GET·POST /clients`,
 `/clients/{id}`, `/clients/{id}/payment_details`, `/clients/{id}/individuals`, `/clients/roles`.
+
+Shipped: `list` (requires `--type individual|legal`) / `show` / `create` / `update` / `delete`
++ read-only `roles` lookup. Sub-resources (`payment_details`, `individuals`) deferred.
 
 ### 1.3 `participant` (read-first) ⬜
 

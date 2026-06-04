@@ -16,7 +16,7 @@ Binary: \`if-team\`.
 ## Core Patterns
 
 - Run \`if-team <command> --help\` for available subcommands, flags, and usage examples.
-- Resources: \`project\`, \`task\`, \`iteration\`. Each supports \`list\`, \`show <id>\`, \`create\`, \`update <id>\`, \`delete <id>\`.
+- Resources: \`project\`, \`task\`, \`iteration\`, \`client\`. Each supports \`list\`, \`show <id>\`, \`create\`, \`update <id>\`, \`delete <id>\`. (\`client list\` additionally requires \`--type individual|legal\`.)
 - \`workload\` is time tracking (logged time / time entries). It has task-scoped verbs (\`log\`, \`start\`, \`finish\`, \`comment\`, \`today\`) plus \`list <task_id>\` / \`show\` / \`update\` / \`delete\` — see the Time tracking section.
 - \`if-team <resource> <id>\` is shorthand for \`show <id>\`.
 - \`create\` and \`update\` accept common fields as named flags AND a full DTO via \`--data\`. Named flags override \`--data\` fields.
@@ -146,6 +146,28 @@ require an \`amount\` — the CLI defaults it to \`0\` for you, so you don't hav
 
 To fill an iteration with tasks, create the iteration first, then pass its id to
 \`task create --iteration <id>\` (see the Tasks section).
+
+## Clients
+
+Clients are the companies and individuals projects/tasks bill against (the \`--client\` ids on
+\`project create\` / \`task create\`). \`client list\` **requires \`--type individual|legal\`** — the
+API rejects an untyped listing.
+
+\`\`\`bash
+if-team client list --type legal --ndjson                 # business clients
+if-team client list --type individual --name adam         # search by name
+if-team client roles --ndjson                             # available client role IDs
+if-team client show 1001 --ndjson
+if-team client 1001                                       # shorthand for \`show\`
+
+if-team client create --name "Acme Inc" --type legal --email billing@acme.test
+if-team client update 1001 --phone "+123" --yes
+if-team client delete 1001 --yes
+\`\`\`
+
+Common create/update flags: \`--name\`, \`--type\`, \`--email\`, \`--phone\`, \`--address\`,
+\`--country <id>\`, \`--iban\`, \`--bank\`, \`--comment\`, repeatable \`--responsible <id>\` /
+\`--role <id>\`, and \`--lead <id>\`. Anything else goes through \`--data\`.
 
 ## Time tracking / workload
 
