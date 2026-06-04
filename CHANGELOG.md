@@ -1,3 +1,9 @@
+## [1.2.0-next.2](https://github.com/jdi-company/if-team-cli/compare/v1.2.0-next.1...v1.2.0-next.2) (2026-06-04)
+
+### Features
+
+* **client:** client command group (Phase 1.2) ([#6](https://github.com/jdi-company/if-team-cli/issues/6)) ([12b7da4](https://github.com/jdi-company/if-team-cli/commit/12b7da494b6cdbe1a62ec7c698d7a5c7b2c41eb7))
+
 ## [1.2.0-next.1](https://github.com/jdi-company/if-team-cli/compare/v1.1.1...v1.2.0-next.1) (2026-06-04)
 
 ### Features
