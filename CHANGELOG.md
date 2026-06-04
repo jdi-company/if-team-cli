@@ -1,3 +1,9 @@
+## [1.1.1](https://github.com/jdi-company/if-team-cli/compare/v1.1.0...v1.1.1) (2026-06-04)
+
+### Bug Fixes
+
+* smooth daily-driver friction in iteration/project commands ([#4](https://github.com/jdi-company/if-team-cli/issues/4)) ([6ed24c7](https://github.com/jdi-company/if-team-cli/commit/6ed24c78052df020d3f273f206ecc21778c240f4))
+
 ## [1.1.0](https://github.com/jdi-company/if-team-cli/compare/v1.0.0...v1.1.0) (2026-05-27)
 
 ### Features
