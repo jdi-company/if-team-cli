@@ -11,6 +11,7 @@ export function registerProjectCommand(program: Command): void {
 Examples:
   if-team project list                              # first page of projects
   if-team project list --status 3 --limit 50
+  if-team project list --name "Acme"                # server-side name search
   if-team project statuses                          # available status IDs
   if-team project show 1234                         # full details for one project
   if-team project 1234                              # same as \`show\` (implicit view)
@@ -21,6 +22,7 @@ Examples:
         .command('list')
         .description('List projects')
         .option('--status <id>', 'Filter by status ID')
+        .option('--name <pattern>', 'Filter by name (server-side substring match)')
         .option('--page <n>', 'Page number (1-based)')
         .option('--limit <n>', 'Page size (max 50)')
         .option('--json', 'Output the raw API response as JSON')

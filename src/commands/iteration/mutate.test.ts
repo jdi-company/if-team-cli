@@ -23,8 +23,8 @@ describe('iteration create — parseProjectId', () => {
 })
 
 describe('iteration create — buildCreateBody', () => {
-    it('returns {} when nothing is passed', () => {
-        expect(buildCreateBody({})).toEqual({})
+    it('defaults to_project_amount=false when nothing is passed', () => {
+        expect(buildCreateBody({})).toEqual({ to_project_amount: false })
     })
 
     it('maps named flags onto API field names', () => {
@@ -53,8 +53,38 @@ describe('iteration create — buildCreateBody', () => {
         })
     })
 
-    it('omits to_project_amount when not passed', () => {
-        expect(buildCreateBody({ name: 'X' })).toEqual({ name: 'X' })
+    it('defaults to_project_amount=false when only other flags are passed', () => {
+        expect(buildCreateBody({ name: 'X' })).toEqual({
+            name: 'X',
+            to_project_amount: false,
+        })
+    })
+
+    it('defaults amount to 0 when to_project_amount is true and --amount is omitted', () => {
+        expect(buildCreateBody({ name: 'X', toProjectAmount: true })).toEqual({
+            name: 'X',
+            to_project_amount: true,
+            amount: 0,
+        })
+    })
+
+    it('keeps an explicit --amount when to_project_amount is true', () => {
+        expect(
+            buildCreateBody({ name: 'X', toProjectAmount: true, amount: '500' }),
+        ).toEqual({ name: 'X', to_project_amount: true, amount: 500 })
+    })
+
+    it('keeps amount/to_project_amount supplied via --data', () => {
+        expect(
+            buildCreateBody({ data: '{"to_project_amount":true,"amount":750}' }),
+        ).toEqual({ to_project_amount: true, amount: 750 })
+    })
+
+    it('defaults amount to 0 when to_project_amount comes from --data as true', () => {
+        expect(buildCreateBody({ data: '{"to_project_amount":true}' })).toEqual({
+            to_project_amount: true,
+            amount: 0,
+        })
     })
 })
 
