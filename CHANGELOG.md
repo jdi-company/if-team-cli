@@ -1,3 +1,9 @@
+## [1.2.0-next.1](https://github.com/jdi-company/if-team-cli/compare/v1.1.1...v1.2.0-next.1) (2026-06-04)
+
+### Features
+
+* **workload:** time-tracking command group (Phase 1.1) ([#5](https://github.com/jdi-company/if-team-cli/issues/5)) ([c2b9112](https://github.com/jdi-company/if-team-cli/commit/c2b9112f2d71c5fa5772e52c5e656b2064733469))
+
 ## [1.1.1](https://github.com/jdi-company/if-team-cli/compare/v1.1.0...v1.1.1) (2026-06-04)
 
 ### Bug Fixes
