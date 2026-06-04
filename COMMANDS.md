@@ -119,6 +119,66 @@ if-team iteration delete 345 --yes
 `to_project_amount` defaults to `false`; passing `--to-project-amount` makes the API require an
 `amount`, which the CLI defaults to `0` (override with `--amount <n>`).
 
+## Clients
+
+### Browse
+
+```bash
+if-team client list --type legal                  # business clients (--type is REQUIRED)
+if-team client list --type individual --name adam # search individuals by name
+if-team client roles                              # available client role IDs
+if-team client show 1001                          # full details for one client
+if-team client 1001                               # shorthand for `show`
+```
+
+`client list` requires `--type individual|legal`; the API rejects an untyped listing. Other
+filters: `--name`, `--email`, `--phone`, `--comment`, `--country <id>`.
+
+### Mutate
+
+```bash
+if-team client create --name "Acme Inc" --type legal --email billing@acme.test --country 1
+if-team client update 1001 --phone "+123" --yes
+if-team client delete 1001 --yes
+```
+
+Create/update flags: `--name`, `--type`, `--email`, `--phone`, `--address`, `--comment`,
+`--country <id>`, `--iban`, `--bank`, `--registration-number`, `--telegram`, `--whatsapp`,
+`--date-of-birth`, repeatable `--responsible <id>` / `--role <id>`, and `--lead <id>`. Anything
+not covered goes through `--data`.
+
+## Workload (time tracking)
+
+`workload` records logged time against tasks. Durations accept `2h` / `90m` / `2h30m` / `45s` or a
+raw number of seconds (`7200`).
+
+### Log & live timers
+
+```bash
+if-team workload log --task 42 --duration 2h30m   # log a finished entry (defaults to you, now)
+if-team workload log --task 42 --duration 90m --date 2026-06-05
+if-team workload log --task 42 --duration 1h --participant 1001   # log for another participant
+
+if-team workload start --task 42                  # start a live timer
+if-team workload finish --task 42                 # stop the active timer
+if-team workload comment --task 42 --comment "Pairing on the bug"  # annotate the active timer
+if-team workload today                            # today's tracked time
+```
+
+### Browse & edit entries
+
+```bash
+if-team workload list 42                          # entries for task 42 (task id required)
+if-team workload show 4567                         # one entry
+if-team workload 4567                              # shorthand for `show`
+if-team workload update 4567 --duration 3h --yes
+if-team workload delete 4567 --yes
+```
+
+`log` defaults `--participant` to the logged-in user (JWT login only; pass `--participant <id>` in
+API-key mode). `--date YYYY-MM-DD` expands to UTC midnight — use `--start-at` for an explicit ISO
+8601 datetime.
+
 ## Skill installer
 
 Install the `if-team` skill into your AI coding assistant (Claude Code, Cursor, Codex, Copilot, Gemini, or the universal `~/.agents/` layout). The skill teaches the agent these commands so it can run them on your behalf.

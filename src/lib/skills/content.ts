@@ -1,7 +1,7 @@
 export const SKILL_NAME = 'if-team-cli'
 
 export const SKILL_DESCRIPTION =
-    'Manage if.team projects, tasks, and iterations via the `if-team` CLI. Use when the user wants to view, create, update, or delete projects/tasks/iterations on if.team.'
+    'Manage if.team projects, tasks, iterations, and time tracking (workload) via the `if-team` CLI. Use when the user wants to view, create, update, or delete projects/tasks/iterations or log/track time on if.team.'
 
 export const SKILL_COMPATIBILITY =
     "Requires the if-team CLI (if-team-cli) to be installed and authenticated via 'if-team auth login'."
@@ -16,7 +16,8 @@ Binary: \`if-team\`.
 ## Core Patterns
 
 - Run \`if-team <command> --help\` for available subcommands, flags, and usage examples.
-- Resources: \`project\`, \`task\`, \`iteration\`. Each supports \`list\`, \`show <id>\`, \`create\`, \`update <id>\`, \`delete <id>\`.
+- Resources: \`project\`, \`task\`, \`iteration\`, \`client\`. Each supports \`list\`, \`show <id>\`, \`create\`, \`update <id>\`, \`delete <id>\`. (\`client list\` additionally requires \`--type individual|legal\`.)
+- \`workload\` is time tracking (logged time / time entries). It has task-scoped verbs (\`log\`, \`start\`, \`finish\`, \`comment\`, \`today\`) plus \`list <task_id>\` / \`show\` / \`update\` / \`delete\` — see the Time tracking section.
 - \`if-team <resource> <id>\` is shorthand for \`show <id>\`.
 - \`create\` and \`update\` accept common fields as named flags AND a full DTO via \`--data\`. Named flags override \`--data\` fields.
 - \`--data\` accepts a JSON literal, \`@file.json\`, or \`-\` for stdin.
@@ -146,10 +147,52 @@ require an \`amount\` — the CLI defaults it to \`0\` for you, so you don't hav
 To fill an iteration with tasks, create the iteration first, then pass its id to
 \`task create --iteration <id>\` (see the Tasks section).
 
+## Clients
+
+Clients are the companies and individuals projects/tasks bill against (the \`--client\` ids on
+\`project create\` / \`task create\`). \`client list\` **requires \`--type individual|legal\`** — the
+API rejects an untyped listing.
+
+\`\`\`bash
+if-team client list --type legal --ndjson                 # business clients
+if-team client list --type individual --name adam         # search by name
+if-team client roles --ndjson                             # available client role IDs
+if-team client show 1001 --ndjson
+if-team client 1001                                       # shorthand for \`show\`
+
+if-team client create --name "Acme Inc" --type legal --email billing@acme.test
+if-team client update 1001 --phone "+123" --yes
+if-team client delete 1001 --yes
+\`\`\`
+
+Common create/update flags: \`--name\`, \`--type\`, \`--email\`, \`--phone\`, \`--address\`,
+\`--country <id>\`, \`--iban\`, \`--bank\`, \`--comment\`, repeatable \`--responsible <id>\` /
+\`--role <id>\`, and \`--lead <id>\`. Anything else goes through \`--data\`.
+
 ## Time tracking / workload
 
-Logging hours (time entries / workload records) is **not yet supported via this CLI**. Don't try to
-synthesise it through \`--data\` on another command — log hours in the if.team web UI for now.
+\`workload\` is if.team's name for time tracking — each entry records logged time against a task.
+Durations accept \`2h\` / \`90m\` / \`2h30m\` / \`45s\` or a raw number of seconds (\`7200\`).
+
+\`\`\`bash
+if-team workload log --task 42 --duration 2h30m              # log a finished entry (you, now)
+if-team workload log --task 42 --duration 90m --date 2026-06-05
+if-team workload log --task 42 --duration 1h --participant 1001   # log for another participant
+
+if-team workload start --task 42                             # start a live timer
+if-team workload finish --task 42                            # stop the active timer
+if-team workload comment --task 42 --comment "Pairing"       # annotate the active timer
+if-team workload today --ndjson                              # today's tracked time
+
+if-team workload list 42 --ndjson                            # entries for task 42
+if-team workload show 4567 --ndjson
+if-team workload update 4567 --duration 3h --yes
+if-team workload delete 4567 --yes
+\`\`\`
+
+- \`log\` defaults \`--participant\` to the logged-in user (JWT login; pass \`--participant <id>\` in API-key mode).
+- \`--date YYYY-MM-DD\` is expanded to UTC midnight; pass \`--start-at\` for an explicit ISO 8601 datetime.
+- \`log\`, \`start\`, \`finish\`, and \`comment\` are scoped by \`--task\`; \`list\` takes the task id as a positional argument; \`show\` / \`update\` / \`delete\` take a workload entry id.
 
 ## Skill installer (managing this skill file)
 

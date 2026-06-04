@@ -46,6 +46,14 @@ const commands: Record<string, [string, () => Promise<(p: Command) => void>]> = 
         'Browse project iterations',
         async () => (await import('./commands/iteration/index.js')).registerIterationCommand,
     ],
+    client: [
+        'Manage clients (companies and individuals)',
+        async () => (await import('./commands/client/index.js')).registerClientCommand,
+    ],
+    workload: [
+        'Track time (logged time / time entries)',
+        async () => (await import('./commands/workload/index.js')).registerWorkloadCommand,
+    ],
     skill: [
         'Install the if-team agent skill into Claude Code, Cursor, Codex, etc.',
         async () => (await import('./commands/skill/index.js')).registerSkillCommand,
