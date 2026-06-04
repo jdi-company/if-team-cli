@@ -28,6 +28,7 @@ interface ProjectsResponse {
 
 export interface ListOptions {
     status?: string
+    name?: string
     page?: string
     limit?: string
     json?: boolean
@@ -37,6 +38,7 @@ export interface ListOptions {
 export function buildQuery(options: ListOptions): Record<string, string | number> {
     const query: Record<string, string | number> = {}
     if (options.status) query['filter[status_id][]'] = options.status
+    if (options.name) query['filter[name]'] = options.name
     if (options.page) query.page = options.page
     if (options.limit) query.limit = options.limit
     return query

@@ -39,6 +39,7 @@ if-team auth logout                               # invalidate session, clear ke
 ```bash
 if-team project list                              # first page (default 20 items)
 if-team project list --status 3 --limit 50        # filter + page size
+if-team project list --name "Acme"                # server-side name search
 if-team project list --page 2
 if-team project statuses                          # available status IDs
 if-team project show 1234                         # full details
@@ -114,6 +115,9 @@ if-team iteration create --project 12 --name "2026/Q3/S1" \
 if-team iteration update 345 --status 2300 --yes
 if-team iteration delete 345 --yes
 ```
+
+`to_project_amount` defaults to `false`; passing `--to-project-amount` makes the API require an
+`amount`, which the CLI defaults to `0` (override with `--amount <n>`).
 
 ## Skill installer
 

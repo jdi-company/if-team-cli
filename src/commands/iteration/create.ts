@@ -51,7 +51,16 @@ export function buildCreateBody(options: CreateOptions): Record<string, unknown>
         exchange_rate: asNumber(options.exchangeRate, '--exchange-rate'),
         to_project_amount: options.toProjectAmount,
     }
-    return mergeBody(data, flags)
+    const body = mergeBody(data, flags)
+
+    // The API always requires `to_project_amount`, and additionally requires
+    // `amount` once it is true. Without these defaults a minimal `create`
+    // 422s twice in a row (first on to_project_amount, then on amount). Fill
+    // sensible defaults after merging so values from --data still win.
+    if (body.to_project_amount === undefined) body.to_project_amount = false
+    if (body.to_project_amount === true && body.amount === undefined) body.amount = 0
+
+    return body
 }
 
 interface CreatedResponse {

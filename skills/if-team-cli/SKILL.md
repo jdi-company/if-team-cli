@@ -5,7 +5,7 @@ compatibility: "Requires the if-team CLI (if-team-cli) to be installed and authe
 license: MIT
 metadata:
   author: JAST DEVELOP InT OÜ
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # if.team CLI (if-team)
@@ -30,18 +30,20 @@ When the user asks a natural-language question about their work in if.team, **do
 
 | User asks… | Run exactly this |
 |---|---|
-| "What are my tasks for today?" / "Що мені робити сьогодні?" | `if-team task list --assignee me --finish-at <today> --json` |
-| "What are my tasks for this week?" | `if-team task list --assignee me --start-at <mon> --finish-at <sun> --json` |
-| "Show me overdue tasks" | `if-team task list --assignee me --finish-at <today> --status <not_finished_id> --json` — pair with `task statuses --json` to discover IDs |
-| "What's on project X?" | `if-team task list --project <id> --status <id> --json` |
-| "Who is responsible for task 4567?" | `if-team task show 4567 --json` and read `.task.responsibles` |
-| "Mark task 4567 as done" | `if-team task statuses --json` to find the Finished/Done id, then `if-team task update 4567 --status <id> --yes` |
-| "List my projects" | `if-team project list --json` (filter client-side if you must — the project list is small) |
+| "What are my tasks for today?" / "Що мені робити сьогодні?" | `if-team task list --assignee me --finish-at <today> --ndjson` |
+| "What are my tasks for this week?" | `if-team task list --assignee me --start-at <mon> --finish-at <sun> --ndjson` |
+| "Show me overdue tasks" | `if-team task list --assignee me --finish-at <today> --status <not_finished_id> --ndjson` — pair with `task statuses --ndjson` to discover IDs |
+| "What's on project X?" | `if-team task list --project <id> --status <id> --ndjson` |
+| "Add a task to sprint/iteration N" | `if-team task create --project <id> --iteration <id> --name "..." --status <id>` |
+| "Who is responsible for task 4567?" | `if-team task show 4567 --ndjson` and read `.task.responsibles` |
+| "Mark task 4567 as done" | `if-team task statuses --ndjson` to find the Finished/Done id, then `if-team task update 4567 --status <id> --yes` |
+| "Find / list projects" | `if-team project list --name "<text>" --ndjson` — server-side name search, no pagination needed |
 
 Rules for the AI:
 - **Resolve dates yourself before calling.** The CLI does not understand "today" or "tomorrow" — convert to `YYYY-MM-DD` from the system date (or ask the user if ambiguous) and pass that.
-- **Always pass `--json`** when you intend to parse output. The default table format is for humans.
-- **Never loop `task list --page 1..N` and filter with `jq`.** Use `--assignee`, `--project`, `--status`, `--start-at`, `--finish-at` instead. If a filter you need doesn't exist as a CLI flag, ask the user before falling back to client-side filtering — it's a sign the CLI is missing a feature worth adding.
+- **Always pass `--ndjson`** when you intend to parse output. It emits one compact JSON object per line — cheaper to read than `--json` and trivial to stream through `jq`. The default table format is for humans only. (`--json` exists too, but prefer `--ndjson`.)
+- **Never loop `<resource> list --page 1..N` and filter with `jq`.** Use the server-side filters instead: tasks take `--assignee`, `--project`, `--iteration`, `--status`, `--start-at`, `--finish-at`; projects take `--name` and `--status`. To look up one known entity use `<resource> show <id>`. If a filter you need doesn't exist as a CLI flag, ask the user before falling back to client-side filtering — it's a sign the CLI is missing a feature worth adding.
+- **`project list` is paginated and may be server-filtered** (e.g. it can omit archived/on-hold projects by default). Don't assume one page is the whole company — narrow with `--name` / `--status`, or fetch a known project directly with `project show <id>`.
 - **Status / priority IDs vary per company.** Always call `task statuses` / `task priorities` (or `project statuses`) when you need to translate a name into an id. Cache the result inside one conversation, not across sessions.
 - **`--assignee me` requires a JWT login.** If you get `NO_USER_IDENTITY`, tell the user to run `if-team auth login` (email/password) once — don't try to work around it by passing a numeric id you guessed.
 - **Confirm before mutating.** `create` is fine to run on a clear request; `update` and `delete` need explicit user intent. Always pass `--yes` to silence the prompt in non-interactive contexts, but never pass `--yes` without surfacing the change to the user first.
@@ -51,8 +53,8 @@ Rules for the AI:
 
 | Flag | Description |
 |---|---|
-| `--json` | Pretty JSON output (machine-readable) |
-| `--ndjson` | Single line of JSON (or one line per item for lists) |
+| `--ndjson` | **Preferred for parsing.** One compact JSON object per line (or a single line for `show`). |
+| `--json` | Pretty multi-line JSON. Same data as `--ndjson` but more tokens — only use when a human needs to read it. |
 | `-q, --quiet` | Suppress success messages. Create commands still print the bare ID for scripting. |
 | `-v` | Verbose; repeat up to `-vvvv` (request/response logs at `-vv`, body at `-vvv`) |
 | `--no-spinner` | Disable loading animations |
@@ -78,7 +80,8 @@ Credentials are stored in the OS keychain (macOS Keychain / Windows Credential M
 ## Projects
 
 ```bash
-if-team project list                                   # first page (default 20)
+if-team project list                                   # first page (default 20; paginated/filtered)
+if-team project list --name "Acme"                     # server-side name search (use this to find a project)
 if-team project list --status 3 --limit 50 --page 2
 if-team project statuses                               # available status IDs
 if-team project show 1234                              # full details
@@ -109,6 +112,7 @@ if-team task show 4567
 
 if-team task create --project 12 --name "Wire up auth" --priority 2 \
   --status 3 --time-plan 7200 --participant 5
+if-team task create --project 12 --iteration 345 --name "Sprint task" --status 3   # add to an iteration
 
 # start_at / finish_at on tasks use ISO 8601 datetime (not plain YYYY-MM-DD).
 # The API requires start_at on task updates — include --start-at if you hit a 422.
@@ -135,6 +139,17 @@ if-team iteration create --project 12 --name "2026/Q3/S1" \
 if-team iteration update 345 --status 2300 --yes
 if-team iteration delete 345 --yes
 ```
+
+`to_project_amount` defaults to `false`. Passing `--to-project-amount` (true) makes the API
+require an `amount` — the CLI defaults it to `0` for you, so you don't have to pass `--amount 0`.
+
+To fill an iteration with tasks, create the iteration first, then pass its id to
+`task create --iteration <id>` (see the Tasks section).
+
+## Time tracking / workload
+
+Logging hours (time entries / workload records) is **not yet supported via this CLI**. Don't try to
+synthesise it through `--data` on another command — log hours in the if.team web UI for now.
 
 ## Skill installer (managing this skill file)
 
