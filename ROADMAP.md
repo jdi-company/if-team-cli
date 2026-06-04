@@ -33,6 +33,7 @@ below, either in a phase or in the out-of-scope inventory.
 | `project` | list / show / create / update / delete / statuses | `list --name` server-side search |
 | `task` | list / show / create / update / delete / statuses / priorities | `--iteration`, `--assignee me` |
 | `iteration` | list / show / create / update / delete / statuses | `to_project_amount`/`amount` defaults |
+| `workload` | log / start / finish / comment / today / list / show / update / delete | time tracking; `2h`/`90m`/`2h30m`/raw-seconds durations |
 | `skill` | list / install / update / uninstall | agent skill installer |
 
 ---
@@ -41,7 +42,7 @@ below, either in a phase or in the out-of-scope inventory.
 
 The highest-friction misses from real agent usage.
 
-### 1.1 `workload` — time tracking ⬜
+### 1.1 `workload` — time tracking ✅
 
 The single most-requested feature. The group is named `workload` in the API (it records
 **logged time / time entries**); keep that name in the CLI and explain "time tracking" in help
@@ -52,7 +53,7 @@ text and SKILL.md.
 | `workload log --task <id> --duration 2h --date <d>` | `POST /workload` | create a finished entry; accept `2h` / `90m` / `2h30m` and raw seconds |
 | `workload start --task <id>` | `POST /workload/start` | start a live timer |
 | `workload finish` | `POST /workload/finish` | stop the active timer |
-| `workload comment --workload <id>` | `POST /workload/comment` | annotate an entry |
+| `workload comment --task <id>` | `POST /workload/comment` | annotate the active timer (endpoint is task-scoped, not entry-scoped) |
 | `workload today` | `GET /workload/today` | today's entries |
 | `workload list` | `GET /workload` | filter by task / participant / date range |
 | `workload show/update/delete <id>` | `GET·PATCH·DELETE /workload/{id}` | edit / remove an entry |

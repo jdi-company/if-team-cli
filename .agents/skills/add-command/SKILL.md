@@ -85,6 +85,23 @@ These are real cases from this codebase. Assume each new endpoint hides at least
 7. **`show` endpoints return envelopes.** `GET /tasks/{id}` returns
    `{ task, dependencyTasks, checklists, … }`. Unwrap for key-value display, but pass the
    **raw envelope** through for `--json`/`--ndjson`.
+8. **`list` endpoints may wrap results in a pagination envelope the spec hides.**
+   `GET /workload` is documented as returning a bare `array` of `Workload`, but the live API
+   returns `{ currentPage, data, nextPage, time_plan, time_spent }`. A `printTable(res, …)`
+   then dies with `rows.map is not a function` and `--ndjson` iterates the wrong thing. Unwrap
+   `.data` and tolerate both shapes: `const items = Array.isArray(res) ? res : res.data ?? []`.
+   See `workload/list.ts`.
+9. **`PATCH` may reject a *partial* body with a 500.** `PATCH /workload/{id}` marks every
+   field optional, but sending only the changed field returns `500 "DB Error"`; it succeeds
+   only when `time` + `start_at` + `participant_id` are all present. **Fetch the current entry
+   first and hydrate the unchanged required fields before the PATCH** — the read-modify-write
+   variant of the conditional-required trap (#1). See `workload/update.ts` → `hydrateUpdateBody`
+   (kept pure and unit-tested; the GET happens in the command action).
+10. **Bodyless POST action endpoints 400 on an absent body.** `POST /workload/start` and
+   `/workload/finish` take no body fields, but `apiRequest` always sends
+   `Content-Type: application/json`; with no body the server's JSON parser throws
+   `400 "Unexpected end of JSON input"`. Pass `body: '{}'` on any action-style POST that has no
+   DTO. (Create/update endpoints already send a body, and DELETEs are unaffected.)
 
 ---
 
@@ -228,6 +245,39 @@ Use `-vv` / `-vvv` for manual QA — `apiRequest` logs `→ METHOD url`, `← st
 
 ---
 
+## Step 7 — Live QA against the API (mandatory; do it after the tests are green)
+
+**Green unit tests are not proof the command works.** They exercise the *pure* builders against
+the spec's idea of the API — which lies (Step 0). Every bug in the `workload` group survived a
+fully green `npm test` and was caught only by running the built binary against the live API:
+the `list` pagination envelope (#8), the partial-`PATCH` 500 (#9), and the bodyless-POST 400
+(#10). So after coding **and** writing test cases, you must drive the real endpoints end-to-end.
+
+**Never QA against real company data.** Create a disposable parent entity, do everything inside
+it, and delete it afterward. Confirm the deletion. The CLI uses the user's saved keychain
+credentials — treat the account as production.
+
+Recipe:
+
+1. `npm run build` (live QA runs `node dist/index.js …`, not the source).
+2. `node dist/index.js auth status` — confirm you're authenticated and note the company.
+3. **Create a throwaway parent**, clearly named so a human can spot it:
+   `project create --name "QA-<group> (delete me)" …`. Discover required ids (status, currency,
+   client, participant) with read-only calls — `… statuses`, or a tiny script importing
+   `dist/lib/api/client.js`'s `apiRequest`. (Heads-up: `GET /clients` 422s without `type=legal|individual`.)
+4. **Exercise every subcommand** you added against that entity, in both human and `--ndjson`
+   form, plus the key error paths (`NOT_FOUND`, `NO_CHANGES`, `CONFIRMATION_REQUIRED`, bad input).
+   Watch specifically for the Step 0 lies: envelope-vs-array on `list`, partial-body rejection on
+   `update`, and empty-body rejection on bodyless POSTs.
+5. **When live behavior contradicts the spec, fix the code, keep the pure logic testable, and add
+   a unit test** for the corrected builder (e.g. `hydrateUpdateBody`), then re-run Step 6.
+6. **Tear it all down** (`delete <id> --yes`, cascade from the parent) and **verify it's gone**
+   (`show <id>` → `NOT_FOUND`). Remove any temp scripts.
+
+Only after live QA passes and the data is cleaned up is the command done.
+
+---
+
 ## Quick checklist
 
 - [ ] Ran the Step 0 DTO inspector; noted required fields, conditional requirements, body-vs-query split, and format quirks.
@@ -236,9 +286,13 @@ Use `-vv` / `-vvv` for manual QA — `apiRequest` logs `→ METHOD url`, `← st
 - [ ] Bracket-notation list filters; ISO-datetime where the live API demands it.
 - [ ] `--no-*` negation flags declared explicitly where needed.
 - [ ] Post-merge defaults for any known double-422 trap (after `mergeBody`).
+- [ ] `list` unwraps a pagination envelope if the API returns one (don't trust a bare-`array` spec).
+- [ ] Partial `PATCH` hydrated from the current entry if the endpoint 500s on a partial body.
+- [ ] Bodyless action POSTs send `body: '{}'`.
 - [ ] `confirmMutation` on update, `confirmDeletion` on delete; `NO_CHANGES` on empty update.
 - [ ] 404 mapped via `err.code === 'NOT_FOUND'`, not message regex.
 - [ ] `--json` / `--ndjson` / `--quiet` honored; create prints bare ID under `--quiet`.
 - [ ] Tests for query/body/id builders incl. `--data` blend and every default.
 - [ ] `content.ts` updated (not the `.md`), `npm run sync:skill` run, `COMMANDS.md` updated.
 - [ ] `npm run type-check && npm test && npm run check:skill-sync` all green.
+- [ ] **Live QA done (Step 7):** every subcommand driven against a throwaway entity, bugs fixed + unit-tested, test data deleted and verified gone.
