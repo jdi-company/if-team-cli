@@ -5,7 +5,7 @@ compatibility: "Requires the if-team CLI (if-team-cli) to be installed and authe
 license: MIT
 metadata:
   author: JAST DEVELOP InT OÜ
-  version: "1.2.0-next.2"
+  version: "1.2.0"
 ---
 
 # if.team CLI (if-team)
