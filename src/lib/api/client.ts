@@ -172,10 +172,17 @@ export async function apiRequest<T>(
     if (fetchOptions.body !== undefined && fetchOptions.body !== null) {
         log(3, '  body:', typeof fetchOptions.body === 'string' ? fetchOptions.body : '<binary>')
     }
+    // Only advertise a JSON body when we actually send one. The if.team API
+    // rejects a request that sets `Content-Type: application/json` with an empty
+    // body ("Body cannot be empty when content-type is set to
+    // 'application/json'"), which broke every bodyless mutation — notably the
+    // `delete` commands (task, iteration, project, client, workload), all of
+    // which issue a DELETE with no body.
+    const hasBody = fetchOptions.body !== undefined && fetchOptions.body !== null
     const res = await fetch(url.toString(), {
         ...fetchOptions,
         headers: {
-            'Content-Type': 'application/json',
+            ...(hasBody ? { 'Content-Type': 'application/json' } : {}),
             ...companyHeader,
             ...(fetchOptions.headers as Record<string, string>),
             ...authHeaders,
