@@ -141,6 +141,41 @@ describe('apiRequest — no IF_TEAM_TOKEN', () => {
     })
 })
 
+describe('apiRequest — Content-Type only when a body is present', () => {
+    beforeEach(() => {
+        vi.mocked(loadCredentials).mockReturnValue({
+            mode: 'api-key',
+            key: 'stored-key',
+            companyId: 77,
+            companyName: 'My Co',
+        })
+    })
+
+    it('does NOT set Content-Type on a bodyless request (e.g. DELETE)', async () => {
+        // Regression: the API rejects a request that advertises
+        // `Content-Type: application/json` but sends no body, which broke every
+        // delete command (task/iteration/project/client/workload).
+        await apiRequest('/tasks/123', { method: 'DELETE', query: { stop: 'true' } })
+
+        const opts = mockFetch.mock.calls[0][1] as RequestInit & {
+            headers: Record<string, string>
+        }
+        expect(opts.headers['Content-Type']).toBeUndefined()
+    })
+
+    it('sets Content-Type when a body IS present (e.g. POST/PATCH)', async () => {
+        await apiRequest('/tasks', {
+            method: 'POST',
+            body: JSON.stringify({ name: 'x' }),
+        })
+
+        const opts = mockFetch.mock.calls[0][1] as RequestInit & {
+            headers: Record<string, string>
+        }
+        expect(opts.headers['Content-Type']).toBe('application/json')
+    })
+})
+
 describe('apiRequest — CliError type guard', () => {
     it('thrown NO_COMPANY is a CliError instance', async () => {
         vi.stubEnv('IF_TEAM_TOKEN', 'env-key')
