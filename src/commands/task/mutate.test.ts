@@ -58,6 +58,40 @@ describe('task create — buildCreateBody', () => {
             buildCreateBody({ data: '{"name":"from data"}', name: 'from flag' }),
         ).toEqual({ name: 'from flag' })
     })
+
+    it('defaults start_at to the start of the finish_at day when start_at is omitted', () => {
+        expect(
+            buildCreateBody({ finishAt: '2026-08-12T23:59:59.000Z' }),
+        ).toEqual({
+            finish_at: '2026-08-12T23:59:59.000Z',
+            start_at: '2026-08-12T00:00:00.000Z',
+        })
+    })
+
+    it('does not override an explicitly provided start_at', () => {
+        expect(
+            buildCreateBody({
+                startAt: '2026-08-01T00:00:00.000Z',
+                finishAt: '2026-08-12T23:59:59.000Z',
+            }),
+        ).toEqual({
+            start_at: '2026-08-01T00:00:00.000Z',
+            finish_at: '2026-08-12T23:59:59.000Z',
+        })
+    })
+
+    it('leaves start_at unset when finish_at is not provided', () => {
+        expect(buildCreateBody({ name: 'No dates' })).toEqual({ name: 'No dates' })
+    })
+
+    it('applies the start_at default when finish_at comes from --data', () => {
+        expect(
+            buildCreateBody({ data: '{"finish_at":"2026-08-12T23:59:59.000Z"}' }),
+        ).toEqual({
+            finish_at: '2026-08-12T23:59:59.000Z',
+            start_at: '2026-08-12T00:00:00.000Z',
+        })
+    })
 })
 
 describe('task update — buildUpdateBody', () => {

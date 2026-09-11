@@ -116,6 +116,12 @@ if-team task create --project 12 --name "Wire up auth" --priority 2 \
 if-team task create --project 12 --iteration 345 --name "Sprint task" --status 3   # add to an iteration
 
 # start_at / finish_at on tasks use ISO 8601 datetime (not plain YYYY-MM-DD).
+# The API requires start_at <= finish_at and rejects a null start_at once finish_at is set.
+# On `task create`, passing --finish-at without --start-at auto-defaults start_at to
+# the start of that same day (00:00:00.000Z) so the request doesn't 422.
+if-team task create --project 12 --name "Due tomorrow" --finish-at 2026-08-12T23:59:59.000Z
+# -> sends start_at: 2026-08-12T00:00:00.000Z, finish_at: 2026-08-12T23:59:59.000Z
+
 # The API requires start_at on task updates — include --start-at if you hit a 422.
 if-team task update 4567 --status 6 \
   --start-at 2026-06-01T09:00:00.000Z \

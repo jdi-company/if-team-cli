@@ -55,7 +55,24 @@ export function buildCreateBody(options: CreateOptions): Record<string, unknown>
         participant_ids: options.participant,
         client_ids: options.client,
     }
-    return mergeBody(data, flags)
+    const body = mergeBody(data, flags)
+
+    // The API requires start_at <= finish_at and rejects a null start_at
+    // whenever finish_at is set. If the caller gave --finish-at (or a
+    // finish_at in --data) without a start_at, default start_at to the
+    // start of that same day so the request doesn't fail validation.
+    if (body.finish_at && !body.start_at) {
+        body.start_at = startOfDay(body.finish_at as string)
+    }
+
+    return body
+}
+
+function startOfDay(isoDate: string): string {
+    const date = new Date(isoDate)
+    if (Number.isNaN(date.getTime())) return isoDate
+    date.setUTCHours(0, 0, 0, 0)
+    return date.toISOString()
 }
 
 interface CreatedResponse {
